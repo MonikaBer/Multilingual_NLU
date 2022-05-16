@@ -134,3 +134,62 @@ def create_joint_dataset(data_dir, languages, new_dataset_path):
                     if lang_nr > 0 and line[:2] == "id":
                         continue
                     fWrite.write(line)
+
+def remove_uncommon_values_in_two_lists(list1, list2):
+    #list 1 contains additional elemnts
+    elementsToRemove = []
+    for i in list1:
+        flag = 1
+        for j in list2:
+            if i == j:
+                flag = 0
+        if flag == 1:
+            elementsToRemove.append(i)
+    for i in elementsToRemove:
+        list1.remove(i)
+
+def count_relations(dataset, datasetUniqueRelationList):
+    datasetRelationDict = dict.fromkeys(datasetUniqueRelationList, 0)
+    datasetRelationList = dataset["relation"].tolist()
+    for i in datasetRelationList:
+        for j in datasetUniqueRelationList:
+            if i == j:
+                datasetRelationDict[i] += 1
+    return datasetRelationDict
+
+def remove_rare_relations(trainRelationDict, testRelationDict,
+        trainUniqueRelationList, testUniqueRelationList):
+    keysToRemove = []
+    for k in trainRelationDict.keys():
+        if (trainRelationDict[k] < 16):
+            keysToRemove.append(k)
+    if keysToRemove:
+        for k in keysToRemove:
+            if k in trainUniqueRelationList:
+                trainUniqueRelationList.remove(k)
+            if k in testUniqueRelationList:
+                testUniqueRelationList.remove(k)
+            del trainRelationDict[k]
+            del testRelationDict[k]
+
+
+def remove_rare_relations_from_language_pair(train, test):
+    trainUniqueRelationList = train.relation.unique().tolist()
+    testUniqueRelationList = test.relation.unique().tolist()
+    trainUniqueRelationList.sort()
+    testUniqueRelationList.sort()
+    if trainUniqueRelationList != testUniqueRelationList:
+        commonRelation = []
+        for i in trainUniqueRelationList:
+            for j in testUniqueRelationList:
+                if i == j:
+                    commonRelation.append(i)
+        remove_uncommon_values_in_two_lists(trainUniqueRelationList, commonRelation)
+        remove_uncommon_values_in_two_lists(testUniqueRelationList, commonRelation)
+    trainRelationDict = count_relations(train, trainUniqueRelationList)
+    testRelationDict = count_relations(test, testUniqueRelationList)
+    remove_rare_relations(trainRelationDict, testRelationDict,
+        trainUniqueRelationList, testUniqueRelationList)
+    train = train[train.relation.isin(trainUniqueRelationList)]
+    test = test[test.relation.isin(testUniqueRelationList)]
+    return train, test
