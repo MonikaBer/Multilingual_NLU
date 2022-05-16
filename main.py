@@ -55,13 +55,13 @@ def set_seed(seed_val):
     torch.cuda.manual_seed_all(seed_val)
 
 
-def evaluate(dataloader_val, model, device):
+def evaluate(dataloader, model, device):
     model.eval()
 
     loss_val_total = 0
     predictions, true_vals = [], []
 
-    for batch in dataloader_val:
+    for batch in dataloader:
 
         batch = tuple(b.to(device) for b in batch)
 
@@ -82,7 +82,7 @@ def evaluate(dataloader_val, model, device):
         predictions.append(logits)
         true_vals.append(label_ids)
 
-    loss_val_avg = loss_val_total / len(dataloader_val)
+    loss_val_avg = loss_val_total / len(dataloader)
 
     predictions = np.concatenate(predictions, axis = 0)
     true_vals = np.concatenate(true_vals, axis = 0)
@@ -153,7 +153,7 @@ def main():
     languages.sort()
     print(languages)
 
-    # define path for joint dataset
+    # define path for joint train dataset
     new_dataset_path = args.data_dir
     if len(languages) > 1:
         new_dataset_path += 'NEW_'
@@ -311,17 +311,49 @@ def main():
         loss_train_avg = loss_train_total / len(dataloader_train)
         tqdm.write(f'Training loss: {loss_train_avg}')
 
+        # validation
         val_loss, predictions, true_vals = evaluate(dataloader_validation, model, args.device)
         val_f1 = f1_score_func(predictions, true_vals)
         tqdm.write(f'Validation loss: {val_loss}')
         tqdm.write(f'F1 Score (Weighted): {val_f1}')
 
 
-    # 8. validation
-    model.load_state_dict(torch.load(f'{args.model_path}_epoch_1.model', map_location = torch.device(args.device)))
+    # 8. testing
+    tqdm.write('--------------------------------------------------------------------------------------')
+    tqdm.write('##### TESTING #####')
+    tqdm.write('--------------------------------------------------------------------------------------')
+    # model.load_state_dict(torch.load(f'{args.model_path}_epoch_1.model', map_location = torch.device(args.device)))
 
-    _, predictions, true_vals = evaluate(dataloader_validation, model, args.device)
-    accuracy_per_class(predictions, true_vals, encoded_labels)
+    for lang in languages:
+        test_dataset_path = args.data_dir + lang + "_corpora_test.tsv"
+        test_df = load_data(test_dataset_path)
+        test_df['label'] = test_df.relation.replace(encoded_labels)
+
+        encoded_data_test = tokenizer.batch_encode_plus(
+            test_df.text.values,
+            add_special_tokens = True,
+            return_attention_mask = True,
+            pad_to_max_length = True,
+            max_length = args.max_length,
+            return_tensors = 'pt'
+        )
+
+        input_ids_test = encoded_data_test['input_ids']
+        attention_masks_test = encoded_data_test['attention_mask']
+        labels_test = torch.tensor(test_df.label.values)
+
+        dataset_test = TensorDataset(input_ids_test, attention_masks_test, labels_test)
+
+        dataloader_test = DataLoader(
+            dataset_test,
+            sampler = SequentialSampler(dataset_test),
+            batch_size = args.batch_size
+        )
+
+        tqdm.write(f'#### Test model for lang {lang} ####')
+
+        _, predictions, true_vals = evaluate(dataloader_test, model, args.device)
+        accuracy_per_class(predictions, true_vals, encoded_labels)
 
 
     return 0
