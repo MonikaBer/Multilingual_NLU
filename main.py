@@ -96,10 +96,10 @@ arg:
 returns:
   tuple - ex. ("ru", "es", "en", ...)
 '''
-def str2tuple(s):
+def str2list(s):
     s = s.replace('(', '').replace(')', '').replace(' ', '')
     list_str = map(str, s.split(','))
-    return tuple(list_str)
+    return list(list_str)
 
 
 def create_joint_dataset(data_dir, languages, new_dataset_path):
@@ -149,11 +149,14 @@ def main():
     args = parser.parse_args()
 
     # 1. load data
-    languages = str2tuple(args.langs)
-    #print(languages)
+    languages = str2list(args.langs)
+    languages.sort()
+    print(languages)
 
     # define path for joint dataset
-    new_dataset_path = args.data_dir + 'NEW_'
+    new_dataset_path = args.data_dir
+    if len(languages) > 1:
+        new_dataset_path += 'NEW_'
     for lang in languages:
         new_dataset_path += lang + '_'
     new_dataset_path += "corpora_train.tsv"
