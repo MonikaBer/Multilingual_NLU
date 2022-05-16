@@ -1,3 +1,5 @@
+# import pdb
+import os
 import torch
 import random
 import pandas as pd
@@ -11,10 +13,6 @@ from transformers import BertForSequenceClassification
 from torch.utils.data import TensorDataset
 from transformers import AdamW, get_linear_schedule_with_warmup
 from sklearn.metrics import f1_score
-
-
-MAX_LENGTH = 8 #256
-DEVICE = "cpu" #cuda
 
 
 def load_data(file_path):
@@ -57,7 +55,7 @@ def set_seed(seed_val):
     torch.cuda.manual_seed_all(seed_val)
 
 
-def evaluate(dataloader_val, model):
+def evaluate(dataloader_val, model, device):
     model.eval()
 
     loss_val_total = 0
@@ -65,7 +63,7 @@ def evaluate(dataloader_val, model):
 
     for batch in dataloader_val:
 
-        batch = tuple(b.to(DEVICE) for b in batch)
+        batch = tuple(b.to(device) for b in batch)
 
         inputs = {'input_ids':      batch[0],
                   'attention_mask': batch[1],
@@ -92,12 +90,80 @@ def evaluate(dataloader_val, model):
     return loss_val_avg, predictions, true_vals
 
 
+'''
+arg:
+  string - ex. "(ru, es, en, ...)"
+returns:
+  tuple - ex. ("ru", "es", "en", ...)
+'''
+def str2tuple(s):
+    s = s.replace('(', '').replace(')', '').replace(' ', '')
+    list_str = map(str, s.split(','))
+    return tuple(list_str)
+
+
+def create_joint_dataset(data_dir, languages, new_dataset_path):
+    with open(new_dataset_path, 'w') as fWrite:
+        for lang_nr, lang in enumerate(languages):
+            path = data_dir + lang + "_corpora_train.tsv"
+            with open(path) as fRead:
+                for line in fRead:
+                    if lang_nr > 0 and line[:2] == "id":
+                        continue
+                    fWrite.write(line)
+
+
 def main():
     parser = ArgumentParser()
+    # dataset
+    parser.add_argument("--data-dir", type = str, default = "data/datasets/",
+                        help = "path to directory with datasets (default: %(default)s)")
+    parser.add_argument("--langs", type = str, default = "(ru,fa)",
+                        help = "tuple of languages (default: %(default)s)")
+    parser.add_argument("--model-path", type = str, default = "models/model1",
+                        help = "model path for storage (default: %(default)s)")
+    # device dependencies
+    parser.add_argument("--device", type = str, default = "cuda",
+                        help = "device ex. cuda, cpu (default: %(default)s)")
+    parser.add_argument("--batch-size", type = int, default = 32,
+                        help = "batch size (default: %(default)s)")
+    parser.add_argument("--max-length", type = int, default = 256,
+                        help = "max length (default: %(default)s)")
+    # another experiment parameters
+    parser.add_argument("--epochs", type = int, default = 4,
+                        help = "number of epochs (default: %(default)s)")
+    parser.add_argument("--random-state", type = int, default = 42,
+                        help = "random state (default: %(default)s)")
+    parser.add_argument("--test-size", type = float, default = 0.15,
+                        help = "size of test set (default: %(default)s)")
+    parser.add_argument("--lr", type = float, default = 1e-5,
+                        help = "learning rate (default: %(default)s)")
+    parser.add_argument("--eps", type = float, default = 1e-8,
+                        help = "epsilon (default: %(default)s)")
+    parser.add_argument("--warmup-steps", type = int, default = 0,
+                        help = "number of warmup steps (default: %(default)s)")
+    parser.add_argument("--seed", type = int, default = 17,
+                        help = "seed (default: %(default)s)")
+    parser.add_argument("--max-norm", type = float, default = 1.0,
+                        help = "max norm of the gradients (default: %(default)s)")
     args = parser.parse_args()
 
     # 1. load data
-    df = load_data('data/datasets/ru_corpora_train.tsv')
+    languages = str2tuple(args.langs)
+    #print(languages)
+
+    # define path for joint dataset
+    new_dataset_path = args.data_dir + 'NEW_'
+    for lang in languages:
+        new_dataset_path += lang + '_'
+    new_dataset_path += "corpora_train.tsv"
+
+    # create joint dataset if it isn't exist
+    if not os.path.exists(new_dataset_path):
+        create_joint_dataset(args.data_dir, languages, new_dataset_path)
+
+
+    df = load_data(new_dataset_path)
     possible_labels = df.relation.unique()
     # print(possible_labels)
 
@@ -114,8 +180,8 @@ def main():
     X_train, X_val, y_train, y_val = train_test_split(
         df.index.values,
         df.label.values,
-        test_size = 0.15,
-        random_state = 42,
+        test_size = args.test_size,
+        random_state = args.random_state,
         stratify = df.label.values
     )
 
@@ -137,7 +203,7 @@ def main():
         add_special_tokens = True,
         return_attention_mask = True,
         pad_to_max_length = True,
-        max_length = MAX_LENGTH,
+        max_length = args.max_length,
         return_tensors = 'pt'
     )
 
@@ -146,7 +212,7 @@ def main():
         add_special_tokens = True,
         return_attention_mask = True,
         pad_to_max_length = True,
-        max_length = MAX_LENGTH,
+        max_length = args.max_length,
         return_tensors = 'pt'
     )
 
@@ -169,46 +235,41 @@ def main():
         output_attentions = False,
         output_hidden_states = False
     )
-    model.to(DEVICE)
+    model.to(args.device)
 
 
     # 5. dataloaders
-    batch_size = 3
-
     dataloader_train = DataLoader(
         dataset_train,
         sampler = RandomSampler(dataset_train),
-        batch_size = batch_size
+        batch_size = args.batch_size
     )
 
     dataloader_validation = DataLoader(
         dataset_val,
         sampler = SequentialSampler(dataset_val),
-        batch_size = batch_size
+        batch_size = args.batch_size
     )
 
 
     # 6. optimizer and scheduler
     optimizer = AdamW(
         model.parameters(),
-        lr = 1e-5,
-        eps = 1e-8
+        lr = args.lr,
+        eps = args.eps
     )
-
-    epochs = 1
 
     scheduler = get_linear_schedule_with_warmup(
         optimizer,
-        num_warmup_steps = 0,
-        num_training_steps = len(dataloader_train) * epochs
+        num_warmup_steps = args.warmup_steps,
+        num_training_steps = len(dataloader_train) * args.epochs
     )
 
 
     # 7. training loop
-    seed_val = 17
-    set_seed(seed_val)
+    set_seed(args.seed)
 
-    for epoch in tqdm(range(1, epochs + 1)):
+    for epoch in tqdm(range(1, args.epochs + 1)):
         model.train()
 
         loss_train_total = 0
@@ -218,7 +279,7 @@ def main():
         for batch in progress_bar:
             model.zero_grad()
 
-            batch = tuple(b.to(DEVICE) for b in batch)
+            batch = tuple(b.to(args.device) for b in batch)
 
             inputs = {
                 'input_ids':      batch[0],
@@ -232,7 +293,7 @@ def main():
             loss_train_total += loss.item()
             loss.backward()
 
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_norm)
 
             optimizer.step()
             scheduler.step()
@@ -240,23 +301,23 @@ def main():
             progress_bar.set_postfix({'training_loss': '{:.3f}'.format(loss.item() / len(batch))})
 
 
-        torch.save(model.state_dict(), f'models/finetuned_BERT_epoch_{epoch}.model')
+        torch.save(model.state_dict(), f'{args.model_path}_epoch_{epoch}.model')
 
         tqdm.write(f'\nEpoch {epoch}')
 
         loss_train_avg = loss_train_total / len(dataloader_train)
         tqdm.write(f'Training loss: {loss_train_avg}')
 
-        val_loss, predictions, true_vals = evaluate(dataloader_validation, model)
+        val_loss, predictions, true_vals = evaluate(dataloader_validation, model, args.device)
         val_f1 = f1_score_func(predictions, true_vals)
         tqdm.write(f'Validation loss: {val_loss}')
         tqdm.write(f'F1 Score (Weighted): {val_f1}')
 
 
     # 8. validation
-    model.load_state_dict(torch.load('models/finetuned_BERT_epoch_1.model', map_location = torch.device(DEVICE)))
+    model.load_state_dict(torch.load(f'{args.model_path}_epoch_1.model', map_location = torch.device(args.device)))
 
-    _, predictions, true_vals = evaluate(dataloader_validation, model)
+    _, predictions, true_vals = evaluate(dataloader_validation, model, args.device)
     accuracy_per_class(predictions, true_vals, encoded_labels)
 
 
