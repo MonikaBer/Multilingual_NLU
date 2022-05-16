@@ -1,5 +1,5 @@
 # Multilingual_NLU
-Multilingual Natural Language Understanding with M-BERT and SMiLER dataset.
+Multilingual Natural Language Understanding with M-BERT and SMiLER dataset for Multilingual Entity and Relation Extraction.
 
 ## Doc
 - [v1](https://demo.hedgedoc.org/0ezHN-JjQGm7Oog9j-Ty0A)
