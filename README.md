@@ -1,5 +1,5 @@
 # Multilingual_NLU
-Multilingual Natural Language Understanding with M-BERT.
+Multilingual Natural Language Understanding with M-BERT and SMiLER dataset.
 
 ## Doc
 - [v1](https://demo.hedgedoc.org/0ezHN-JjQGm7Oog9j-Ty0A)
@@ -26,5 +26,5 @@ source venv/bin/activate
 
 ## Execution
 ```
-
+python main.py --device "cuda" --max-length 256 --batch-size 32 --langs "(ru,pl,es)" --epochs 4
 ```
