@@ -41,7 +41,6 @@ class RelationClassifier:
             create_joint_dataset(self.config.data_dir, self.config.langs, self.dataset_path)
 
     def create_dataloaders(self):
-        print(self.dataset_path)
         df, self.encoded_labels = prepare_df(self.dataset_path, self.config)
 
         self.dataloader_train = get_dataloader(
