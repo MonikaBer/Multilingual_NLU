@@ -5,7 +5,7 @@ from transformers import BertTokenizer
 from transformers import AdamW, get_linear_schedule_with_warmup
 
 from metrics import f1_score_func, accuracy_per_class
-from utils import load_data, prepare_df, get_model, get_dataloader, set_seed, evaluate, create_joint_dataset
+from utils import *
 
 
 class RelationClassifier:
@@ -17,13 +17,24 @@ class RelationClassifier:
         )
 
     def prepare_data(self):
+        #Remove rare Relations from training and testing data
+        for lang in self.config.langs:
+            trainLangPath = self.config.data_dir + lang + '_corpora_train'
+            testLangPath = self.config.data_dir + lang + '_corpora_test'
+            trainLangDataset = load_data(trainLangPath + '.tsv')
+            testLangDataset = load_data(testLangPath + '.tsv')
+            train2LangDataset, test2LangDataset = remove_rare_relations_from_language_pair(trainLangDataset, testLangDataset)
+            train2LangDataset.to_csv(trainLangPath + '2' + '.tsv', sep = '\t', index = False)
+            test2LangDataset.to_csv(testLangPath + '2' + '.tsv', sep = '\t', index = False)
+
+
         # define path for joint train dataset
         self.dataset_path = self.config.data_dir
         if len(self.config.langs) > 1:
             self.dataset_path += 'NEW_'
         for lang in self.config.langs:
             self.dataset_path += lang + '_'
-        self.dataset_path += "corpora_train.tsv"
+        self.dataset_path += "corpora_train2.tsv"
 
         # create joint dataset if it isn't exist
         if not os.path.exists(self.dataset_path):
@@ -123,7 +134,7 @@ class RelationClassifier:
         # self.model.load_state_dict(torch.load(f'{self.config.model_path}_epoch_1.model', map_location = torch.device(self.config.device)))
 
         for lang in self.config.langs:
-            test_dataset_path = self.config.data_dir + lang + "_corpora_test.tsv"
+            test_dataset_path = self.config.data_dir + lang + "_corpora_test2.tsv"
             test_df = load_data(test_dataset_path)
             test_df['label'] = test_df.relation.replace(self.encoded_labels)
 
