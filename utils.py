@@ -128,7 +128,7 @@ def evaluate(dataloader, model, device):
 def create_joint_dataset(data_dir, languages, new_dataset_path):
     with open(new_dataset_path, 'w') as fWrite:
         for lang_nr, lang in enumerate(languages):
-            path = data_dir + lang + "_corpora_train.tsv"
+            path = data_dir + lang + "_corpora_train2.tsv"
             with open(path) as fRead:
                 for line in fRead:
                     if lang_nr > 0 and line[:2] == "id":
