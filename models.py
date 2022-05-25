@@ -89,19 +89,24 @@ class RelationClassifier:
             for batch in progress_bar:
                 self.model.zero_grad()
 
-                batch = tuple(b.to(self.config.device) for b in batch)
+                batchDevice = tuple(b.to(self.config.device) for b in batch)
 
                 inputs = {
-                    'input_ids':      batch[0],
-                    'attention_mask': batch[1],
-                    'labels':         batch[2],
+                    'input_ids':      batchDevice[0],
+                    'attention_mask': batchDevice[1],
+                    'labels':         batchDevice[2],
                 }
 
                 outputs = self.model(**inputs)
-
+                
                 loss = outputs[0]
                 loss_train_total += loss.item()
                 loss.backward()
+
+                # free memory
+                del inputs
+                del batchDevice
+                torch.cuda.empty_cache()
 
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.max_norm)
 

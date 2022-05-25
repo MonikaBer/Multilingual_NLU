@@ -10,8 +10,21 @@ from torch.utils.data import TensorDataset
 def load_data(file_path):
     df = pd.read_csv(file_path, sep = '\t')
     # remove the unnecessary columns
-    df = df.drop(columns = ['id', 'entity_1', 'entity_2', 'lang'])
-    df.rename(columns = {'label':'relation'}, inplace = True)
+    columns = ['id', 'entity_1', 'entity_2', 'lang']
+    toDropColumns = []
+    for c in columns:
+        if c in df:
+            toDropColumns.append(c)
+    if (len(toDropColumns) != 0):
+        df = df.drop(columns = toDropColumns)
+
+    # rename columns
+    toRename = {'label':'relation'}
+    toRenameConfirm = {}
+    for key, val in toRename.items():
+        if key in df:
+            toRenameConfirm[key] = val
+    df.rename(columns = toRenameConfirm, inplace = True)
     #print(df.head())
     return df
 
@@ -22,6 +35,7 @@ def encode_labels(possible_labels):
     return label_dict
 
 def prepare_df(dataset_path, config):
+    print(f"Loading {dataset_path}")
     df = load_data(dataset_path)
     possible_labels = df.relation.unique()
     #print(possible_labels)
@@ -193,3 +207,17 @@ def remove_rare_relations_from_language_pair(train, test):
     train = train[train.relation.isin(trainUniqueRelationList)]
     test = test[test.relation.isin(testUniqueRelationList)]
     return train, test
+
+def getModelSize(model):
+    """
+        Get model size in MB.
+    """
+    param_size = 0
+    for param in model.parameters():
+        param_size += param.nelement() * param.element_size()
+    buffer_size = 0
+    for buffer in model.buffers():
+        buffer_size += buffer.nelement() * buffer.element_size()
+
+    size_all_mb = (param_size + buffer_size) / 1024**2
+    return size_all_mb
