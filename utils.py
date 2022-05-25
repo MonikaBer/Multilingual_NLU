@@ -150,7 +150,7 @@ def remove_uncommon_values_in_two_lists(list1, list2):
 
 def count_relations(dataset, datasetUniqueRelationList):
     datasetRelationDict = dict.fromkeys(datasetUniqueRelationList, 0)
-    datasetRelationList = dataset["relation"].tolist()
+    datasetRelationList = dataset["label"].tolist()
     for i in datasetRelationList:
         for j in datasetUniqueRelationList:
             if i == j:
@@ -174,8 +174,8 @@ def remove_rare_relations(trainRelationDict, testRelationDict,
 
 
 def remove_rare_relations_from_language_pair(train, test):
-    trainUniqueRelationList = train.relation.unique().tolist()
-    testUniqueRelationList = test.relation.unique().tolist()
+    trainUniqueRelationList = train.label.unique().tolist()
+    testUniqueRelationList = test.label.unique().tolist()
     trainUniqueRelationList.sort()
     testUniqueRelationList.sort()
     if trainUniqueRelationList != testUniqueRelationList:
@@ -190,6 +190,6 @@ def remove_rare_relations_from_language_pair(train, test):
     testRelationDict = count_relations(test, testUniqueRelationList)
     remove_rare_relations(trainRelationDict, testRelationDict,
         trainUniqueRelationList, testUniqueRelationList)
-    train = train[train.relation.isin(trainUniqueRelationList)]
-    test = test[test.relation.isin(testUniqueRelationList)]
+    train = train[train.label.isin(trainUniqueRelationList)]
+    test = test[test.label.isin(testUniqueRelationList)]
     return train, test

@@ -21,8 +21,8 @@ class RelationClassifier:
         for lang in self.config.langs:
             trainLangPath = self.config.data_dir + lang + '_corpora_train'
             testLangPath = self.config.data_dir + lang + '_corpora_test'
-            trainLangDataset = load_data(trainLangPath + '.tsv')
-            testLangDataset = load_data(testLangPath + '.tsv')
+            trainLangDataset = pd.read_csv(trainLangPath + '.tsv', sep = '\t')
+            testLangDataset = pd.read_csv(testLangPath + '.tsv', sep = '\t')
             train2LangDataset, test2LangDataset = remove_rare_relations_from_language_pair(trainLangDataset, testLangDataset)
             train2LangDataset.to_csv(trainLangPath + '2' + '.tsv', sep = '\t', index = False)
             test2LangDataset.to_csv(testLangPath + '2' + '.tsv', sep = '\t', index = False)
@@ -41,6 +41,7 @@ class RelationClassifier:
             create_joint_dataset(self.config.data_dir, self.config.langs, self.dataset_path)
 
     def create_dataloaders(self):
+        print(self.dataset_path)
         df, self.encoded_labels = prepare_df(self.dataset_path, self.config)
 
         self.dataloader_train = get_dataloader(
