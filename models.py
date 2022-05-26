@@ -100,7 +100,7 @@ class RelationClassifier:
                 }
 
                 outputs = self.model(**inputs)
-                
+
                 loss = outputs[0]
                 loss_train_total += loss.item()
                 loss.backward()
@@ -126,7 +126,7 @@ class RelationClassifier:
             tqdm.write(f'Training loss: {loss_train_avg}')
 
             # validation
-            val_loss, predictions, true_vals = evaluate(self.dataloader_val, self.model, self.config.device, self.config)
+            val_loss, predictions, true_vals = evaluate(self.dataloader_val, self.model, self.config)
             val_f1 = f1_score_func(predictions, true_vals)
             tqdm.write(f'Validation loss: {val_loss}')
             tqdm.write(f'F1 Score (Weighted): {val_f1}')
@@ -155,5 +155,5 @@ class RelationClassifier:
 
             tqdm.write(f'#### Test model for lang {lang} ####')
 
-            _, predictions, true_vals = evaluate(dataloader_test, self.model, self.config.device, self.config)
+            _, predictions, true_vals = evaluate(dataloader_test, self.model, self.config)
             accuracy_per_class(predictions, true_vals, self.encoded_labels)
