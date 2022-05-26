@@ -85,3 +85,30 @@ def getModelSize(model):
 
     size_all_mb = (param_size + buffer_size) / 1024**2
     return size_all_mb
+
+def align_label_example(tokenized_input, labels):
+        word_ids = tokenized_input.word_ids()
+        previous_word_idx = None
+        label_ids = []
+        
+        for word_idx in word_ids:
+            if word_idx is None:
+                label_ids.append(-100)  
+            elif word_idx != previous_word_idx:
+                try:
+                  label_ids.append(labels_to_ids[labels[word_idx]])
+                except:
+                  label_ids.append(-100)
+            else:
+                label_ids.append(labels_to_ids[labels[word_idx]] if label_all_tokens else -100)
+            previous_word_idx = word_idx
+      
+        return label_ids
+
+
+
+
+
+
+
+

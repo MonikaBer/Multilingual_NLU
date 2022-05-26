@@ -79,7 +79,11 @@ def main():
     model.set_optimizer(config)
     model.set_scheduler(config, dataloader_train=data.dataloader_train)
     
-    Executor.train_relation(
+    #new_label = utils.align_label_example(text_tokenized, label)
+    #print(new_label)
+    #print(tokenizer.convert_ids_to_tokens(text_tokenized["input_ids"][0]))
+
+    '''Executor.train_relation(
         config=config, 
         model=model, 
         dataloader_train=data.dataloader_train, 
@@ -90,7 +94,7 @@ def main():
         tokenizer=model.tokenizer,
         data=data,
         model=model
-    )
+    )'''
 
     #model = RelationClassifier(config)
 
