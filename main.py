@@ -1,7 +1,8 @@
 from argparse import ArgumentParser
 
 from config import Config
-from models import RelationClassifier
+from RelationClassifier import RelationClassifier
+from EntityTagger import EntityTagger
 
 import utils
 
@@ -10,7 +11,7 @@ def main():
     parser = ArgumentParser()
     # task type
     parser.add_argument("--task", type = str, default = "R",
-                        help = "task type ('R' - for relations classification, 'E' - for entities recognition) (default: %(default)s)")
+                        help = "task type ('R' - for relations classification, 'E' - for entities tagging) (default: %(default)s)")
     # dataset
     parser.add_argument("--data-dir", type = str, default = "data/datasets/",
                         help = "path to directory with datasets (default: %(default)s)")
@@ -71,6 +72,7 @@ def main():
         model = RelationClassifier(config)
     else:
         raise NotImplementedError()
+        model = EntityTagger(config)
 
     model.prepare_data()
     model.create_dataloaders()
