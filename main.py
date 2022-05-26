@@ -8,6 +8,9 @@ import utils
 
 def main():
     parser = ArgumentParser()
+    # task type
+    parser.add_argument("--task", type = str, default = "R",
+                        help = "task type ('R' - for relations classification, 'E' - for entities recognition) (default: %(default)s)")
     # dataset
     parser.add_argument("--data-dir", type = str, default = "data/datasets/",
                         help = "path to directory with datasets (default: %(default)s)")
@@ -64,8 +67,11 @@ def main():
         batch_fast_dev_run = args.batch_fdr,
     )
 
-    model = RelationClassifier(config)
-    
+    if args.task == "R":
+        model = RelationClassifier(config)
+    else:
+        raise NotImplementedError()
+
     model.prepare_data()
     model.create_dataloaders()
     model.build_model()
