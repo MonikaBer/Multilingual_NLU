@@ -1,7 +1,8 @@
 from argparse import ArgumentParser
 
 from config import Config
-from models import RelationClassifier
+from RelationClassifier import RelationClassifier
+from EntityTagger import EntityTagger
 
 import utils
 import dataloader
@@ -10,6 +11,9 @@ from  executor import Executor
 
 def get_parser():
     parser = ArgumentParser()
+    # task type
+    parser.add_argument("--task", type = str, default = "R",
+                        help = "task type ('R' - for relations classification, 'E' - for entities tagging) (default: %(default)s)")
     # dataset
     parser.add_argument("--data-dir", type = str, default = "data/datasets/",
                         help = "path to directory with datasets (default: %(default)s)")
@@ -71,30 +75,35 @@ def main():
     )
     utils.set_seed(config.seed)
 
-    data = dataloader.SequenceClassificationDataLoader()
-    data.prepare_data(config)
-    data.create_loaders(config)
+    if args.task == "R":
+        data = dataloader.SequenceClassificationDataLoader()
+        data.prepare_data(config)
+        data.create_loaders(config)
 
-    model = RelationClassifier(config, data.encoded_labels)
-    model.set_optimizer(config)
-    model.set_scheduler(config, dataloader_train=data.dataloader_train)
-    
-    #new_label = utils.align_label_example(text_tokenized, label)
-    #print(new_label)
-    #print(tokenizer.convert_ids_to_tokens(text_tokenized["input_ids"][0]))
+        model = RelationClassifier(config, data.encoded_labels)
+        model.set_optimizer(config)
+        model.set_scheduler(config, dataloader_train=data.dataloader_train)
+        
+        #new_label = utils.align_label_example(text_tokenized, label)
+        #print(new_label)
+        #print(tokenizer.convert_ids_to_tokens(text_tokenized["input_ids"][0]))
 
-    '''Executor.train_relation(
-        config=config, 
-        model=model, 
-        dataloader_train=data.dataloader_train, 
-        dataloader_val=data.dataloader_val)
-    
-    Executor.test(
-        config=config,
-        tokenizer=model.tokenizer,
-        data=data,
-        model=model
-    )'''
+        Executor.train_relation(
+            config=config, 
+            model=model, 
+            dataloader_train=data.dataloader_train, 
+            dataloader_val=data.dataloader_val)
+        
+        Executor.test(
+            config=config,
+            tokenizer=model.tokenizer,
+            data=data,
+            model=model
+        )
+
+    else:
+        raise NotImplementedError()
+        model = EntityTagger(config)
 
     #model = RelationClassifier(config)
 

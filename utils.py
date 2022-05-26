@@ -90,7 +90,7 @@ def align_label_example(tokenized_input, labels):
         word_ids = tokenized_input.word_ids()
         previous_word_idx = None
         label_ids = []
-        
+
         for word_idx in word_ids:
             if word_idx is None:
                 label_ids.append(-100)  

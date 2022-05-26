@@ -133,7 +133,7 @@ class Executor():
             tqdm.write(f'Training loss: {loss_train_avg}')
 
             # validation
-            val_loss, predictions, true_vals = Executor.evaluate(dataloader_val, model, config.device, config)
+            val_loss, predictions, true_vals = Executor.evaluate(dataloader_val, model, config)
             val_f1 = f1_score_func(predictions, true_vals)
             tqdm.write(f'Validation loss: {val_loss}')
             tqdm.write(f'F1 Score (Weighted): {val_f1}')
@@ -162,7 +162,7 @@ class Executor():
             _, predictions, true_vals = Executor.evaluate(dataloader_test, model, config.device, config)
             accuracy_per_class(predictions, true_vals, data.encoded_labels)
 
-    def evaluate(dataloader, model, device, config):
+    def evaluate(dataloader, model, config):
         model.eval()
 
         loss_val_total = 0
@@ -171,7 +171,7 @@ class Executor():
         for batch_idx, batch in enumerate(dataloader):
             if (config.fast_dev_run and batch_idx >= config.batch_fast_dev_run):
                 break
-            batch = tuple(b.to(device) for b in batch)
+            batch = tuple(b.to(config.device) for b in batch)
 
             inputs = {'input_ids':      batch[0],
                     'attention_mask': batch[1],
