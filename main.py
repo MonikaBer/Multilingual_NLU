@@ -4,9 +4,11 @@ from config import Config
 from models import RelationClassifier
 
 import utils
+import dataloader
+from  executor import Executor
 
 
-def main():
+def get_parser():
     parser = ArgumentParser()
     # dataset
     parser.add_argument("--data-dir", type = str, default = "data/datasets/",
@@ -41,8 +43,12 @@ def main():
                         help = "max norm of the gradients (default: %(default)s)")
     parser.add_argument("--fast-dev-run", action='store_true',
                         help = "option for development")
-    parser.add_argument("--batch-fdr", type = int, default = 5,
+    parser.add_argument("--batch-fdr", type = int, default = 2,
                         help = "limit number of batches in each epoch (default: %(default)s)")
+    return parser
+
+def main():
+    parser = get_parser()
     args = parser.parse_args()
 
     config = Config(
@@ -63,21 +69,45 @@ def main():
         fast_dev_run = args.fast_dev_run,
         batch_fast_dev_run = args.batch_fdr,
     )
+    utils.set_seed(config.seed)
 
-    model = RelationClassifier(config)
+    data = dataloader.SequenceClassificationDataLoader()
+    data.prepare_data(config)
+    data.create_loaders(config)
+
+    model = RelationClassifier(config, data.encoded_labels)
+    model.set_optimizer(config)
+    model.set_scheduler(config, dataloader_train=data.dataloader_train)
     
-    model.prepare_data()
-    model.create_dataloaders()
-    model.build_model()
+    Executor.train_relation(
+        config=config, 
+        model=model, 
+        dataloader_train=data.dataloader_train, 
+        dataloader_val=data.dataloader_val)
+    
+    Executor.test(
+        config=config,
+        tokenizer=model.tokenizer,
+        data=data,
+        model=model
+    )
+
+    #model = RelationClassifier(config)
+
+    #utils.set_seed(self.config.seed)
+    
+    #model.prepare_data()
+    #model.create_dataloaders()
+    #model.build_model()
 
     #size = utils.getModelSize(model.model)
     #print(size)
     #exit(0)
-    model.set_optimizer()
-    model.set_scheduler()
+    #model.set_optimizer()
+    #model.set_scheduler()
 
-    model.train()
-    model.test()
+    #model.train()
+    #model.test()
 
     return 0
 
