@@ -86,7 +86,9 @@ class RelationClassifier:
 
             progress_bar = tqdm(self.dataloader_train, desc = 'Epoch {:1d}'.format(epoch), leave = False, disable = False)
 
-            for batch in progress_bar:
+            for batch_idx, batch in enumerate(progress_bar):
+                if (self.config.fast_dev_run and batch_idx >= self.config.batch_fast_dev_run):
+                    break
                 self.model.zero_grad()
 
                 batchDevice = tuple(b.to(self.config.device) for b in batch)
@@ -104,9 +106,9 @@ class RelationClassifier:
                 loss.backward()
 
                 # free memory
-                del inputs
-                del batchDevice
-                torch.cuda.empty_cache()
+                #del inputs
+                #del batchDevice
+                #torch.cuda.empty_cache()
 
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.max_norm)
 
@@ -124,7 +126,7 @@ class RelationClassifier:
             tqdm.write(f'Training loss: {loss_train_avg}')
 
             # validation
-            val_loss, predictions, true_vals = evaluate(self.dataloader_val, self.model, self.config.device)
+            val_loss, predictions, true_vals = evaluate(self.dataloader_val, self.model, self.config.device, self.config)
             val_f1 = f1_score_func(predictions, true_vals)
             tqdm.write(f'Validation loss: {val_loss}')
             tqdm.write(f'F1 Score (Weighted): {val_f1}')
@@ -153,5 +155,5 @@ class RelationClassifier:
 
             tqdm.write(f'#### Test model for lang {lang} ####')
 
-            _, predictions, true_vals = evaluate(dataloader_test, self.model, self.config.device)
+            _, predictions, true_vals = evaluate(dataloader_test, self.model, self.config.device, self.config)
             accuracy_per_class(predictions, true_vals, self.encoded_labels)

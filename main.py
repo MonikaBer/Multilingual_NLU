@@ -3,6 +3,8 @@ from argparse import ArgumentParser
 from config import Config
 from models import RelationClassifier
 
+import utils
+
 
 def main():
     parser = ArgumentParser()
@@ -37,6 +39,10 @@ def main():
                         help = "seed (default: %(default)s)")
     parser.add_argument("--max-norm", type = float, default = 1.0,
                         help = "max norm of the gradients (default: %(default)s)")
+    parser.add_argument("--fast-dev-run", action='store_true',
+                        help = "option for development")
+    parser.add_argument("--batch-fdr", type = int, default = 5,
+                        help = "limit number of batches in each epoch (default: %(default)s)")
     args = parser.parse_args()
 
     config = Config(
@@ -53,13 +59,20 @@ def main():
         eps = args.eps,
         warmup_steps = args.warmup_steps,
         seed = args.seed,
-        max_norm = args.max_norm
+        max_norm = args.max_norm,
+        fast_dev_run = args.fast_dev_run,
+        batch_fast_dev_run = args.batch_fdr,
     )
 
     model = RelationClassifier(config)
+    
     model.prepare_data()
     model.create_dataloaders()
     model.build_model()
+
+    #size = utils.getModelSize(model.model)
+    #print(size)
+    #exit(0)
     model.set_optimizer()
     model.set_scheduler()
 

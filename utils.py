@@ -105,14 +105,15 @@ def set_seed(seed_val):
     torch.cuda.manual_seed_all(seed_val)
 
 
-def evaluate(dataloader, model, device):
+def evaluate(dataloader, model, device, config):
     model.eval()
 
     loss_val_total = 0
     predictions, true_vals = [], []
 
-    for batch in dataloader:
-
+    for batch_idx, batch in enumerate(dataloader):
+        if (config.fast_dev_run and batch_idx >= config.batch_fast_dev_run):
+            break
         batch = tuple(b.to(device) for b in batch)
 
         inputs = {'input_ids':      batch[0],

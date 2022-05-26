@@ -26,7 +26,9 @@ class Config:
         eps,
         warmup_steps,
         seed,
-        max_norm
+        max_norm,
+        fast_dev_run,
+        batch_fast_dev_run
     ):
         self.data_dir = data_dir
         self.model_path = model_path
@@ -41,6 +43,8 @@ class Config:
         self.warmup_steps = warmup_steps
         self.seed = seed
         self.max_norm = max_norm
+        self.fast_dev_run = fast_dev_run
+        self.batch_fast_dev_run = batch_fast_dev_run
 
         languages = str2list(langs)
         languages.sort()
