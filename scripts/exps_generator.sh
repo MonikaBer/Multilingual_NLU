@@ -3,8 +3,8 @@
 # hiperparameters
 LR=("1e-5" "1e-4")
 LANGS=("(ru,fa)")
-BATCH_SIZE=("32" "64")
-MAX_LENGTH=("256" "128")
+BATCH_SIZE=("32")
+MAX_LENGTH=("256")
 EPOCHS=("4")
 EPS=("1e-8")
 WARMUP_STEPS=("0")
@@ -13,9 +13,9 @@ MAX_NORM=("1.0" "0.75")
 
 programname=$0
 function usage {
-    echo "usage: $programname [--id=first_id] [--path=path]"
-    echo "  --id      Number of first experiment"
-    echo "  --path    Path for saving experiments"
+    echo "usage: $programname [--id=first_id] [--results-path=results_path]"
+    echo "  --id                Number of first experiment"
+    echo "  --results-path      Path for saving experiments"
     exit 1
 }
 
@@ -26,7 +26,7 @@ case $i in
     CURR_ID="${i#*=}"
     ;;
     --path=*)
-    PATH="${i#*=}"
+    RESULTS_PATH="${i#*=}"
     ;;
     *)
     usage        # unknown option
@@ -34,7 +34,7 @@ case $i in
 esac
 done
 
-if [[ -z "$CURR_ID" || -z "$PATH" ]]
+if [[ -z "$CURR_ID" || -z "$RESULTS_PATH" ]]
 then
     usage
 fi
@@ -56,7 +56,7 @@ echo -e "Generate ${all_exps} experiments..."
 
 if [ $CURR_ID -eq 0 ]
 then
-echo "id;lr;langs;batch_size;max_length;epochs;eps;warmup_steps;max_norm" >> ${PATH}
+echo "id;lr;langs;batch_size;max_length;epochs;eps;warmup_steps;max_norm" >> ${RESULTS_PATH}
 fi
 
 for lr in "${LR[@]}"; do
@@ -67,7 +67,7 @@ for lr in "${LR[@]}"; do
                     for eps in "${EPS[@]}"; do
                         for warmup_steps in "${WARMUP_STEPS[@]}"; do
                             for max_norm in "${MAX_NORM[@]}"; do
-                                echo "${CURR_ID};${lr};${langs};${batch_size};${max_length};${epochs};${eps};${warmup_steps};${max_norm}" >> ${PATH}
+                                echo "${CURR_ID};${lr};${langs};${batch_size};${max_length};${epochs};${eps};${warmup_steps};${max_norm}" >> ${RESULTS_PATH}
                                 ((CURR_ID++))
                             done
                         done

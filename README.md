@@ -32,10 +32,10 @@ python main.py --device "cuda" --max-length 256 --batch-size 32 --langs "(ru,pl,
 
 2. Script for generating experiments:
 ```
-./scripts/exps_generator.sh --id=0 --path="experiments.csv"
+./scripts/exps_generator.sh --id=0 --results-path="experiments.csv"
 ```
 
 3. Scripts for executing experiments:
 ```
-./scripts/exps_executor.sh --start=0 --n=5 --r=3 --path="results.csv"
+./scripts/exps_executor.sh --hyperparams-path "example-experiments.csv" --start=0 --n=5 --r=3 --results-path="results.csv"
 ```
