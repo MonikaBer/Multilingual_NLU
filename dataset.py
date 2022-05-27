@@ -1,11 +1,11 @@
-import torch 
+import torch
 from torch.utils.data import Dataset
 import utils
 from typing import Union
 import pandas as pd
 import os
 from sklearn.model_selection import train_test_split
-
+import re
 import utils
 
 class BaseDataFrame():
@@ -40,6 +40,11 @@ class BaseDataFrame():
             label_dict[possible_label] = index
         return label_dict
 
+    def remove_tags_from_df(self, df):
+        for n, sentence in enumerate(df.text.values):
+            df.text.values[n] = re.sub(re.compile('<.*?>'), '', sentence)
+        print(df.text.values[2])
+        return df
 
 
 class TrainingDataFrame(BaseDataFrame):
@@ -57,7 +62,7 @@ class ProcessedDataFrame(TrainingDataFrame):
         super().__init__()
         self.path = self.prepare_data(config)
         self.df, self.encoded_labels = self._prepare_df(config, self.path)
-    
+
     def prepare_data(self, config):
         #Remove rare Relations from training and testing data
         for lang in config.langs:
@@ -103,6 +108,7 @@ class ProcessedDataFrame(TrainingDataFrame):
         df['label'] = df.relation.replace(encoded_labels)
         #print(df.relation.value_counts())
         #print(df.index.values)
+        df = self.remove_tags_from_df(df)
 
         # split dataset
         X_train, X_val, y_train, y_val = train_test_split(
@@ -119,7 +125,7 @@ class ProcessedDataFrame(TrainingDataFrame):
         df.groupby(['relation', 'label', 'data_type']).count()
 
         return df, encoded_labels
-        
+
 class ProcessedTestDataFrame(TestDataFrame):
     def __init__(self, config):
         self.langs = config.langs
@@ -210,7 +216,7 @@ class DataSeqClassification(Dataset):
         ids = self.get_input_ids(idx).to(self.device)
 
         return {
-            'input_ids': ids, 
+            'input_ids': ids,
             'attention_mask': attention_mask,
             'labels': label
             }
