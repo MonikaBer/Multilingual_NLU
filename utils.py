@@ -8,6 +8,7 @@ from sklearn.model_selection import train_test_split
 from transformers import BertForSequenceClassification
 from torch.utils.data import TensorDataset
 from transformers.tokenization_utils_base import BatchEncoding
+from tokenizer import Tokenizer
 
 def set_seed(seed_val):
     random.seed(seed_val)
@@ -111,6 +112,15 @@ def align_label(texts, tokenizer):
 
     return label_ids
 
+def mask_entity_token_positions(entityList, sentenceLength):
+    maskList = ['O'] * (sentenceLength + 4)
+    if entityList:
+        maskList[entityList[0]] = 'B-ent1'
+        maskList[entityList[1] + 1] = 'I-ent1'
+        maskList[entityList[2] + 2] = 'B-ent2'
+        maskList[entityList[3] + 3] = 'I-ent2'
+    return maskList
+
 def which_tag(tag):
     if tag[1] == 'e':
         if tag[2] == '##1':
@@ -130,7 +140,7 @@ def which_tag(tag):
         return -1
 
 
-def find_entity_token_positions(df):
+def find_entity_token_positions(df,tokenizer):
     '''
     df must contain sentences with <e1>, <e2> tags
     '''
@@ -144,13 +154,15 @@ def find_entity_token_positions(df):
     tagListLong = [b1,e1,b2,e2]
     tagList = [b1,e1[0:4],b2,e2[0:4]]
 
-    positionFourEntitiesArray = []
+    maskedFourEntitiesArray = []
     possibleErrorList = []
-    for sentenceNumber, sentence in enumerate(df.text.values):
+    for sentenceNumber, untokenizedSentence in enumerate(df.text.values):
+        sentence = tokenizer.tokenize(untokenizedSentence)
         #values used in next loop must be initialized
         positionFourEntities = []
         point = -4
         increment = -1
+        flagError = 0
         for n,i in enumerate(sentence):
             if i == '<':
                 point = n
@@ -170,14 +182,24 @@ def find_entity_token_positions(df):
                         increment += 1
                         if tagNumber != increment:
                             possibleErrorList.append(sentenceNumber)
+                            flagError = 1
                             point = n - 4
                         else:
                             positionFourEntities.append(n - 3)
                             point = n - 4
-            positionFourEntitiesArray.append(positionFourEntities)
+                if not flagError:
+                    positionFourEntities[1] -= 4
+                    positionFourEntities[2] -= 9
+                    positionFourEntities[3] -= 13
+                    maskedFourEntities = mask_entity_token_positions(positionFourEntities, len(sentence))
+                    maskedFourEntitiesArray.append(maskedFourEntities)
+                else:
+                    positionFourEntitiesArray.append([])
+
+
     if possibleErrorList:
         warnings.warn('there are problems with entity tags or with entity_token_positions function')
 
     #return positions of first token in every entity (out of 4) for each sentence
     #dimensions [len(df.text.values) x 4]
-    return torch.tensor(positionFourEntitiesArray)
+    return maskedFourEntitiesArray
