@@ -1,12 +1,19 @@
 from argparse import ArgumentParser
 
 from config import Config
-from RelationClassifier import RelationClassifier
+from model import RelationClassifier
 from EntityTagger import EntityTagger
 
 import utils
 import dataloader
 from  executor import Executor
+from tokenizer import Tokenizer
+from dataset import (
+    DataSeqClassification, 
+    ProcessedDataFrame, 
+    ProcessedTestDataFrame,
+    ProcessTokens
+)
 
 
 def get_parser():
@@ -51,6 +58,73 @@ def get_parser():
                         help = "limit number of batches in each epoch (default: %(default)s)")
     return parser
 
+def train_loop(config, my_data_frame, tokenizer, model):
+    # przenoszę to tu aby python mógł przy po treningu i przy teście zwolnić trochę pamięci
+
+    #
+    # test
+    #
+    '''texts = my_data_frame.df.text.values.tolist()
+    process = ProcessTokens()
+
+    for idx, i in enumerate(texts):
+        ret = process.process(i)
+        print(i)
+        print(ret)
+        print('-------------------------------------------------------------')
+        if(idx == 6):
+            break
+        
+    exit(0)'''
+    #
+    # end test
+    #
+
+    dataset_val = DataSeqClassification(
+        df=my_data_frame.df, 
+        max_length=config.max_length, 
+        tokenizer=tokenizer,
+        config=config,
+        mode='val'
+    )   
+    dataset_train = DataSeqClassification(
+        df=my_data_frame.df, 
+        max_length=config.max_length, 
+        tokenizer=tokenizer,
+        config=config,
+        mode='train'
+    )   
+
+    dataloader_val = dataloader.SequenceClassificationDataLoader(config, tokenizer, dataset_val, 'val')
+    dataloader_train = dataloader.SequenceClassificationDataLoader(config, tokenizer, dataset_train, 'train')
+    
+    model.set_scheduler(config, num_steps=len(dataloader_train.dataloader))
+    
+    #new_label = utils.align_label(
+    #    texts=data.df.text.values.tolist(),
+    #    tokenizer=tokenizer
+    #)
+    #print(new_label)
+    #print(model.tokenizer.convert_ids_to_tokens(data.encoded_data["input_ids"][0]))
+    #print((data.encoded_data["attention_mask"][0]))
+    #exit()
+
+    Executor.train_loop_relation(
+        config=config, 
+        model=model, 
+        dataloader_train=dataloader_train.dataloader, 
+        dataloader_val=dataloader_val.dataloader)
+
+def test_loop(config, tokenizer, model):
+    my_data_frame = ProcessedTestDataFrame(config)
+
+    Executor.test(
+        config=config,
+        tokenizer=tokenizer,
+        dataframe_test=my_data_frame,
+        model=model
+    )
+
 def main():
     parser = get_parser()
     args = parser.parse_args()
@@ -76,51 +150,29 @@ def main():
     utils.set_seed(config.seed)
 
     if args.task == "R":
-        data = dataloader.SequenceClassificationDataLoader()
-        data.prepare_data(config)
-        data.create_loaders(config)
+        tokenizer = Tokenizer('m-bert')  
 
-        model = RelationClassifier(config, data.encoded_labels)
+        my_data_frame = ProcessedDataFrame(config)
+
+        model = RelationClassifier(config, len(my_data_frame.encoded_labels))
         model.set_optimizer(config)
-        model.set_scheduler(config, dataloader_train=data.dataloader_train)
         
-        #new_label = utils.align_label_example(text_tokenized, label)
-        #print(new_label)
-        #print(tokenizer.convert_ids_to_tokens(text_tokenized["input_ids"][0]))
-
-        Executor.train_relation(
-            config=config, 
-            model=model, 
-            dataloader_train=data.dataloader_train, 
-            dataloader_val=data.dataloader_val)
-        
-        Executor.test(
+        train_loop(
             config=config,
-            tokenizer=model.tokenizer,
-            data=data,
-            model=model
+            model=model,
+            my_data_frame=my_data_frame,
+            tokenizer=tokenizer
+        )
+
+        test_loop(
+            config=config,
+            model=model,
+            tokenizer=tokenizer
         )
 
     else:
         raise NotImplementedError()
         model = EntityTagger(config)
-
-    #model = RelationClassifier(config)
-
-    #utils.set_seed(self.config.seed)
-    
-    #model.prepare_data()
-    #model.create_dataloaders()
-    #model.build_model()
-
-    #size = utils.getModelSize(model.model)
-    #print(size)
-    #exit(0)
-    #model.set_optimizer()
-    #model.set_scheduler()
-
-    #model.train()
-    #model.test()
 
     return 0
 

@@ -7,6 +7,8 @@ from tqdm import tqdm
 from torch.optim import SGD
 from metrics import f1_score_func, accuracy_per_class
 
+import dataloader
+from dataset import DataSeqClassification
 
 class Executor():
     def train_loop_tagging(model, df_train, df_val):
@@ -85,7 +87,7 @@ class Executor():
             print(
                 f'Epochs: {epoch_num + 1} | Loss: {total_loss_train / len(df_train): .3f} | Accuracy: {total_acc_train / len(df_train): .3f} | Val_Loss: {total_loss_val / len(df_val): .3f} | Accuracy: {total_acc_val / len(df_val): .3f}')
 
-    def train_relation(config, model, dataloader_train, dataloader_val):
+    def train_loop_relation(config, model, dataloader_train, dataloader_val):
         for epoch in tqdm(range(1, config.epochs + 1)):
             model.train()
 
@@ -98,17 +100,12 @@ class Executor():
                     break
                 model.zero_grad()
 
-                batchDevice = tuple(b.to(config.device) for b in batch)
+                loss, logits = model(**batch)
 
-                inputs = {
-                    'input_ids':      batchDevice[0], # ids of the tokens in a sequence. Contains special reserved tokens
-                    'attention_mask': batchDevice[1], # identify whether a token is a real token or padding
-                    'label':         batchDevice[2], 
-                }
-
-                outputs = model(**inputs)
+                #print('loss', loss.size())
+                #print('logits', logits.size())
+                #exit(0)
                 
-                loss = outputs[0]
                 loss_train_total += loss.item()
                 loss.backward()
 
@@ -138,29 +135,28 @@ class Executor():
             tqdm.write(f'Validation loss: {val_loss}')
             tqdm.write(f'F1 Score (Weighted): {val_f1}')
 
-    def test(config, tokenizer, data, model):
+    def test(config, tokenizer, dataframe_test, model):
         tqdm.write('--------------------------------------------------------------------------------------')
         tqdm.write('##### TESTING #####')
         tqdm.write('--------------------------------------------------------------------------------------')
         # model.load_state_dict(torch.load(f'{config.model_path}_epoch_1.model', map_location = torch.device(config.device)))
 
-        for lang in config.langs:
-            test_dataset_path = config.data_dir + lang + "_corpora_test2.tsv"
-            test_df = data.load_data(test_dataset_path)
-            test_df['label'] = test_df.relation.replace(data.encoded_labels)
+        for it in dataframe_test.iter_df(): # because it is a generator, tuple does not work here
+            df, lang, encoded_labels = it[0], it[1], it[2]
 
-            dataloader_test = data._get_dataloader(
-                tokenizer,
-                test_df,
-                config.max_length,
-                config.batch_size,
-                'test'
+            dataset_test = DataSeqClassification(
+                df=df, 
+                max_length=config.max_length, 
+                tokenizer=tokenizer,
+                config=config,
+                mode='test'
             )
+            dataloader_test = dataloader.SequenceClassificationDataLoader(config, tokenizer, dataset_test, 'test')
 
             tqdm.write(f'#### Test model for lang {lang} ####')
 
-            _, predictions, true_vals = Executor.evaluate(dataloader_test, model, config.device, config)
-            accuracy_per_class(predictions, true_vals, data.encoded_labels)
+            _, predictions, true_vals = Executor.evaluate(dataloader_test.dataloader, model, config)
+            accuracy_per_class(predictions, true_vals, encoded_labels)
 
     def evaluate(dataloader, model, config):
         model.eval()
@@ -168,31 +164,23 @@ class Executor():
         loss_val_total = 0
         predictions, true_vals = [], []
 
-        for batch_idx, batch in enumerate(dataloader):
-            if (config.fast_dev_run and batch_idx >= config.batch_fast_dev_run):
-                break
-            batch = tuple(b.to(config.device) for b in batch)
+        with torch.no_grad():
+            for batch_idx, batch in enumerate(dataloader):
+                if (config.fast_dev_run and batch_idx >= config.batch_fast_dev_run):
+                    break
+                
+                loss, logits = model(**batch)
 
-            inputs = {'input_ids':      batch[0],
-                    'attention_mask': batch[1],
-                    'label':         batch[2],
-                    }
+                loss_val_total += loss.item()
 
-            with torch.no_grad():
-                outputs = model(**inputs)
-
-            loss = outputs[0]
-            logits = outputs[1]
-            loss_val_total += loss.item()
-
-            logits = logits.detach().cpu().numpy()
-            label_ids = inputs['label'].cpu().numpy()
-            predictions.append(logits)
-            true_vals.append(label_ids)
-            #print(inputs['input_ids'])
-            #print(inputs['attention_mask'])
-            #print(true_vals)
-            #exit(0)
+                logits = logits.detach().cpu().numpy()
+                label_ids = batch['labels'].cpu().numpy()
+                predictions.append(logits)
+                true_vals.append(label_ids)
+                #print(inputs['input_ids'])
+                #print(inputs['attention_mask'])
+                #print(true_vals)
+                #exit(0)
 
         loss_val_avg = loss_val_total / len(dataloader)
 
