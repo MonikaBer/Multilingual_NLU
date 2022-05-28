@@ -108,7 +108,7 @@ class ProcessedDataFrame(TrainingDataFrame):
         df['label'] = df.relation.replace(encoded_labels)
         #print(df.relation.value_counts())
         #print(df.index.values)
-        df = self.remove_tags_from_df(df)
+        #df = self.remove_tags_from_df(df)
 
         # split dataset
         X_train, X_val, y_train, y_val = train_test_split(
@@ -252,7 +252,7 @@ class EntityContainer():
     def _convertToTarget(self, numb_entities, numb_words):
         if(numb_entities != len(self.entities)):
             raise Exception(f"Found different number of entities. Assumed number: {numb_entities}. Real number: {len(self.entities)}")
-        
+
 
         special_one_line_idxs = []
         # first iteration - set start and end
@@ -278,12 +278,12 @@ class EntityContainer():
             elif 'I-ent' in t:
                 repeat = False
                 continue
-            
+
             if(repeat):
                 target[idx] = to_repeat
 
         return target
-            
+
 class ProcessTokens():
     def __init__(self, numb_entities=2):
         self.regex = re.compile("<e[0-9]+>|<\/e[0-9]+>")
@@ -313,7 +313,7 @@ class ProcessTokens():
                 start = idx
                 lookahead = self.regex_entity_start.findall(s)
                 entity_number = self.regex_get_entity_number.findall(lookahead[0])
-                
+
             lookback = self.regex_lookback.findall(s)
             if(len(lookback) != 0):
                 end = idx
@@ -357,4 +357,3 @@ class ProcessTokens():
                 except:
                     label_ids.append(-100)
             previous_word_idx = word_idx
-
