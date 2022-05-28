@@ -101,6 +101,10 @@ class Executor():
                 model.zero_grad()
 
                 loss, logits = model(**batch)
+
+                #print('loss', loss.size())
+                #print('logits', logits.size())
+                #exit(0)
                 
                 loss_train_total += loss.item()
                 loss.backward()

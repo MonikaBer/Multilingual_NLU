@@ -214,3 +214,141 @@ class DataSeqClassification(Dataset):
             'attention_mask': attention_mask,
             'labels': label
             }
+
+
+# regex lookup for <eX> </eX>
+class EntityDataClass():
+    def __init__(self, entity_number=None, start=None, end=None):
+        self.entity_number = entity_number
+        self.start = start
+        self.end = end
+
+class EntityContainer():
+    def __init__(self):
+        self.entities = {}
+
+    def add(self, entity_number, start=None, end=None):
+        if not entity_number in self.entities:
+            self.entities[entity_number] = EntityDataClass(
+                entity_number=entity_number,
+                start=start,
+                end=end,
+            )
+        else:
+            if start is not None:
+                self.entities[entity_number].start = start
+            if end is not None:
+                self.entities[entity_number].end = end
+
+    def __len__(self):
+        return len(self.entities)
+
+    def _convertToTarget(self, numb_entities, numb_words):
+        if(numb_entities != len(self.entities)):
+            raise Exception(f"Found different number of entities. Assumed number: {numb_entities}. Real number: {len(self.entities)}")
+        
+
+        special_one_line_idxs = []
+        # first iteration - set start and end
+        target = ['0'] * numb_words
+        for entity_numb, v in self.entities.items():
+            target[v.start] = f'B-ent{entity_numb}' # beginning
+            if(v.start != v.end):
+                target[v.end] = f'I-ent{entity_numb}' # continuation
+            else:
+                special_one_line_idxs.append(v.start)
+
+        # second iteration - fill empty space between start and end
+        repeat = False
+        to_repeat = None
+        for idx, t in enumerate(target):
+            if 'B-ent' in t:
+                repeat = True
+                tmp = t.replace('B-ent', '')
+                to_repeat = f'I-ent{tmp}'
+                if idx in special_one_line_idxs:
+                    repeat = False
+                continue
+            elif 'I-ent' in t:
+                repeat = False
+                continue
+            
+            if(repeat):
+                target[idx] = to_repeat
+
+        return target
+            
+class ProcessTokens():
+    def __init__(self, numb_entities=2):
+        self.regex = re.compile("<e[0-9]+>|<\/e[0-9]+>")
+        self.regex_get_entity_number = re.compile("[0-9]+")
+        self.regex_entity_start = re.compile("<e[0-9]+>")
+        self.regex_entity_end = re.compile("<\/e[0-9]+>")
+        self.regex_lookahead = re.compile('<e[0-9]+>(.*)')
+        self.regex_lookback = re.compile('(.*)<\/e[0-9]+>')
+        self.numb_entities = numb_entities
+
+    def _getRealIndex(self, index, numb_found):
+        return index - numb_found
+
+    def process(self, text: str):
+        numb_found = 0
+        buffer = EntityContainer()
+
+        splits = text.split()
+        for idx, s in enumerate(splits):
+            start = None
+            end = None
+            entity_number = None
+
+            # s can be like <e1>abc</e1> !!
+            lookahead = self.regex_lookahead.findall(s)
+            if(len(lookahead) != 0):
+                start = idx
+                lookahead = self.regex_entity_start.findall(s)
+                entity_number = self.regex_get_entity_number.findall(lookahead[0])
+                
+            lookback = self.regex_lookback.findall(s)
+            if(len(lookback) != 0):
+                end = idx
+                lookback = self.regex_entity_end.findall(s)
+                entity_number = self.regex_get_entity_number.findall(lookback[0])
+
+            # if only a signle entity without other characters like '<e1>'
+            if start is None and end is None:
+                single = self.regex.findall(s)
+                if(len(single) != 0):
+                    print(single)
+                    entity_number = self.regex_get_entity_number.findall(single[0])
+                    if(len(self.regex_entity_start.findall(single)) != 0):
+                        buffer.add(entity_number=entity_number[0], start=self._getRealIndex(idx, numb_found))
+                    else:
+                        buffer.add(entity_number=entity_number[0], end=self._getRealIndex(idx, numb_found))
+                    numb_found += 1
+            else:
+                buffer.add(entity_number=entity_number[0], start=start, end=end)
+
+        return buffer._convertToTarget(self.numb_entities, len(splits) - numb_found)
+
+    def processInput(self, encoded_data):
+        tokens = encoded_data['input_ids']
+        word_ids = tokens.word_ids()
+
+        previous_word_idx = None
+        label_ids = []
+        for word_idx in word_ids:
+            if word_idx is None:
+                label_ids.append(-100)
+
+            elif word_idx != previous_word_idx:
+                try:
+                    label_ids.append(labels_to_ids[labels[word_idx]])
+                except:
+                    label_ids.append(-100)
+            else:
+                try:
+                    label_ids.append(labels_to_ids[labels[word_idx]] if label_all_tokens else -100)
+                except:
+                    label_ids.append(-100)
+            previous_word_idx = word_idx
+
