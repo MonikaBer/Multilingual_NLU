@@ -68,4 +68,11 @@ class BertModel(torch.nn.Module):
         output = self.bert(input_ids=input_ids, attention_mask=attention_mask, labels=labels, return_dict=False)
         return output
 
-    
+class BertModelSpecial(torch.nn.Module):
+    def __init__(self, config, encoded_labels):
+        super(BertModel, self).__init__()
+        self.bert = BertForTokenClassification.from_pretrained('bert-base-cased', num_labels=len(encoded_labels * 4)).to(config.device)
+
+    def forward(self, input_ids, attention_mask, labels):
+        output = self.bert(input_ids=input_ids, attention_mask=attention_mask, labels=labels, return_dict=False)
+        return output

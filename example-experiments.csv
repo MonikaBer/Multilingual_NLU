@@ -1,0 +1,5 @@
+id;lr;langs;batch_size;max_length;epochs;eps;warmup_steps;max_norm
+0;1e-5;(ru,fa);32;256;4;1e-8;0;1.0
+1;1e-5;(ru,fa);32;256;4;1e-8;0;0.75
+2;1e-4;(ru,fa);32;256;4;1e-8;0;1.0
+3;1e-4;(ru,fa);32;256;4;1e-8;0;0.75

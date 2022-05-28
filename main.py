@@ -8,7 +8,12 @@ import utils
 import dataloader
 from  executor import Executor
 from tokenizer import Tokenizer
-from dataset import DataSeqClassification, ProcessedDataFrame, ProcessedTestDataFrame
+from dataset import (
+    DataSeqClassification, 
+    ProcessedDataFrame, 
+    ProcessedTestDataFrame,
+    ProcessTokens
+)
 
 
 def get_parser():
@@ -55,6 +60,25 @@ def get_parser():
 
 def train_loop(config, my_data_frame, tokenizer, model):
     # przenoszę to tu aby python mógł przy po treningu i przy teście zwolnić trochę pamięci
+
+    #
+    # test
+    #
+    '''texts = my_data_frame.df.text.values.tolist()
+    process = ProcessTokens()
+
+    for idx, i in enumerate(texts):
+        ret = process.process(i)
+        print(i)
+        print(ret)
+        print('-------------------------------------------------------------')
+        if(idx == 6):
+            break
+        
+    exit(0)'''
+    #
+    # end test
+    #
 
     dataset_val = DataSeqClassification(
         df=my_data_frame.df, 
