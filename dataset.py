@@ -72,6 +72,17 @@ class TrainingDataFrame(BaseDataFrame):
         self.df = None
         self.encoded_labels = None
 
+    @staticmethod
+    def _create_joint_dataset(data_dir, languages, new_dataset_path):
+        with open(new_dataset_path, 'w') as fWrite:
+            for lang_nr, lang in enumerate(languages):
+                path = data_dir + lang + "_corpora_train2.tsv"
+                with open(path) as fRead:
+                    for line in fRead:
+                        if lang_nr > 0 and line[:2] == "id":
+                            continue
+                        fWrite.write(line)
+
     def prepare_data(self, config):
         #Remove rare Relations from training and testing data
         for lang in config.langs:
@@ -95,18 +106,8 @@ class TrainingDataFrame(BaseDataFrame):
 
         # create joint dataset if it isn't exist
         if not os.path.exists(dataset_path):
-            _create_joint_dataset(config.data_dir, config.langs, dataset_path)
+            self._create_joint_dataset(config.data_dir, config.langs, dataset_path)
         return dataset_path
-
-    def _create_joint_dataset(data_dir, languages, new_dataset_path):
-        with open(new_dataset_path, 'w') as fWrite:
-            for lang_nr, lang in enumerate(languages):
-                path = data_dir + lang + "_corpora_train2.tsv"
-                with open(path) as fRead:
-                    for line in fRead:
-                        if lang_nr > 0 and line[:2] == "id":
-                            continue
-                        fWrite.write(line)
 
 
 class TestDataFrame(BaseDataFrame):
