@@ -25,10 +25,6 @@ class Executor():
                 model.zero_grad()
 
                 loss, logits = model(**batch)
-
-                #print('loss', loss.size())
-                #print('logits', logits.size())
-                #exit(0)
                 
                 loss_train_total += loss.item()
                 loss.backward()
@@ -67,6 +63,11 @@ class Executor():
 
         for it in dataframe_test.iter_df(): # because it is a generator, tuple does not work here
             df, lang, label_to_id = it[0], it[1], it[2]
+            if (model.num_labels != len(label_to_id)):
+                raise Exception(f"Wrong size of labels. For test labels must" +
+                    f"match the size of the model labels which it was trained.\n" +
+                    f"Model labels {model.num_labels}\nUsed labels now: {len(label_to_id)}\n" +
+                    f"Labels now: {label_to_id}")
 
             dataset_test = DataSeqClassification(
                 df=df, 
@@ -101,6 +102,9 @@ class Executor():
                 label_ids = batch['labels'].cpu().numpy()
                 predictions.append(logits)
                 true_vals.append(label_ids)
+                
+                #print('logits', logits)
+                #print('true_vals', true_vals)
                 #print(inputs['input_ids'])
                 #print(inputs['attention_mask'])
                 #print(true_vals)

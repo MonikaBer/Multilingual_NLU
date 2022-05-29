@@ -58,7 +58,7 @@ class BaseDataFrame():
             return process.new_target(row.text)
 
         def pr_text(row):
-            return process.new_text(row.text)
+            return ProcessTokens.new_text(row.text)
 
         df['label_ner'] = df.apply(pr_labels, axis=1)
         df['text_ner'] = df.apply(pr_text, axis=1)
@@ -148,11 +148,18 @@ class ProcessedTestDataFrame(TestDataFrame):
         self.data_dir = config.data_dir
 
     def iter_df(self):
+        dfs = []
         for l in self.langs:
             test_dataset_path = self.data_dir + l + "_corpora_test2.tsv"
             test_df = self.load_data(test_dataset_path)
-            label_to_id, _ = self._encode_labels(test_df)
+            dfs.append(test_df)
+
+        full_df = pd.concat(dfs, ignore_index=True)
+        label_to_id, _ = self._encode_labels(full_df) # from full dataframe to be unique
+
+        for test_df in dfs:
             test_df['label_id'] = test_df.apply(lambda row: label_to_id[row['label']], axis=1)
+            test_df = self.convert_to_ner_data(test_df)
             yield test_df, l, label_to_id
 
 
@@ -173,7 +180,7 @@ class DataSeqClassification(Dataset):
         else:
             raise Exception("Unknown dataset type")
 
-        txt = df_in_use.text.values.tolist()
+        txt = df_in_use.text_ner.values.tolist()
         self.device = config.device
 
         self.encoded_data = tokenizer(
@@ -207,6 +214,12 @@ class DataSeqClassification(Dataset):
         attention_mask = self.get_attention_mask(idx).to(self.device)
         label = self.get_label(idx).to(self.device)
         ids = self.get_input_ids(idx).to(self.device)
+
+        #print("-----------------------------")
+        #print('ids', ids)
+        #print('txt', self.txt[idx])
+        #print('label', label)
+        #exit()
 
         return {
             'input_ids': ids,
@@ -396,7 +409,7 @@ class ProcessTokens():
     def _getRealIndex(self, index, sum_numb_of_removed_words, sum_numb_of_added_words):
         return index - sum_numb_of_removed_words + sum_numb_of_added_words
 
-    def new_text(self, text: str):
+    def new_text(text: str):
         new_text = re.sub('<e[0-9]+>|<\/e[0-9]+>', ' ', text) # add default space, two spaces do nothing wrong
         return new_text
 

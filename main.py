@@ -1,7 +1,7 @@
 from argparse import ArgumentParser
 
 from config import Config
-from model import RelationClassifier
+from model import RelationClassifier, EntityTagging
 from EntityTagger import EntityTagger
 
 import utils
@@ -114,7 +114,8 @@ def train_loop(config, my_data_frame, tokenizer, model):
         config=config, 
         model=model, 
         dataloader_train=dataloader_train.dataloader, 
-        dataloader_val=dataloader_val.dataloader)
+        dataloader_val=dataloader_val.dataloader
+    )
 
 def test_loop(config, tokenizer, model):
     my_data_frame = ProcessedTestDataFrame(config)
@@ -124,6 +125,89 @@ def test_loop(config, tokenizer, model):
         tokenizer=tokenizer,
         dataframe_test=my_data_frame,
         model=model
+    )
+
+def for_model_1(config):
+    tokenizer = Tokenizer('m-bert')  
+
+    my_data_frame = TrainHERBERTaDataFrame(config)
+
+    ### test
+    """datase = TaggingDataset(
+        df=my_data_frame.df, 
+        max_length=config.max_length, 
+        tokenizer=tokenizer,
+        config=config,
+        mode='val'
+    )
+
+    exit()
+    """
+    ### end test
+
+    model = RelationClassifier(config, len(my_data_frame.label_to_id))
+    model.set_optimizer(config)
+    
+    train_loop(
+        config=config,
+        model=model,
+        my_data_frame=my_data_frame,
+        tokenizer=tokenizer
+    )
+
+    test_loop(
+        config=config,
+        model=model,
+        tokenizer=tokenizer
+    )
+
+def for_model_2(config):
+    tokenizer = Tokenizer('m-bert')  
+    my_data_frame = TrainHERBERTaDataFrame(config)
+
+    model = EntityTagging(config)
+    model.set_optimizer(config)
+    
+    dataset_val = TaggingDataset(
+        df=my_data_frame.df, 
+        max_length=config.max_length, 
+        tokenizer=tokenizer,
+        config=config,
+        mode='val'
+    )   
+    dataset_train = TaggingDataset(
+        df=my_data_frame.df, 
+        max_length=config.max_length, 
+        tokenizer=tokenizer,
+        config=config,
+        mode='train'
+    )   
+
+    dataloader_val = dataloader.SequenceClassificationDataLoader(config, tokenizer, dataset_val, 'val')
+    dataloader_train = dataloader.SequenceClassificationDataLoader(config, tokenizer, dataset_train, 'train')
+    
+    model.set_scheduler(config, num_steps=len(dataloader_train.dataloader))
+    
+    #new_label = utils.align_label(
+    #    texts=data.df.text.values.tolist(),
+    #    tokenizer=tokenizer
+    #)
+    #print(new_label)
+    #print(model.tokenizer.convert_ids_to_tokens(data.encoded_data["input_ids"][0]))
+    #print((data.encoded_data["attention_mask"][0]))
+    #exit()
+
+    Executor.train_loop_relation(
+        config=config, 
+        model=model, 
+        dataloader_train=dataloader_train.dataloader, 
+        dataloader_val=dataloader_val.dataloader)
+
+
+    test_loop(
+        config=config,
+        model=model,
+        tokenizer=tokenizer
     )
 
 def main():
@@ -151,42 +235,9 @@ def main():
     utils.set_seed(config.seed)
 
     if args.task == "R":
-        tokenizer = Tokenizer('m-bert')  
-
-        my_data_frame = TrainHERBERTaDataFrame(config)
-
-        ### test
-        """datase = TaggingDataset(
-            df=my_data_frame.df, 
-            max_length=config.max_length, 
-            tokenizer=tokenizer,
-            config=config,
-            mode='val'
-        )
-
-        exit()
-        """
-        ### end test
-
-        model = RelationClassifier(config, len(my_data_frame.label_to_id))
-        model.set_optimizer(config)
-        
-        train_loop(
-            config=config,
-            model=model,
-            my_data_frame=my_data_frame,
-            tokenizer=tokenizer
-        )
-
-        test_loop(
-            config=config,
-            model=model,
-            tokenizer=tokenizer
-        )
-
+        for_model_1(config)
     else:
-        raise NotImplementedError()
-        model = EntityTagger(config)
+        for_model_2(config)
 
     return 0
 
