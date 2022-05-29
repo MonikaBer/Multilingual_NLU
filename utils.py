@@ -194,7 +194,7 @@ def find_entity_token_positions(df,tokenizer):
                     maskedFourEntities = mask_entity_token_positions(positionFourEntities, len(sentence))
                     maskedFourEntitiesArray.append(maskedFourEntities)
                 else:
-                    positionFourEntitiesArray.append([])
+                    maskedFourEntitiesArray.append([])
 
 
     if possibleErrorList:
