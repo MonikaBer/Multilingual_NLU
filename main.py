@@ -10,9 +10,11 @@ from  executor import Executor
 from tokenizer import Tokenizer
 from dataset import (
     DataSeqClassification, 
-    ProcessedDataFrame, 
+    ProcessedDataFrame,
+    ProcessToNERDataFrame, 
     ProcessedTestDataFrame,
-    ProcessTokens
+    ProcessTokens,
+    TaggingDataset
 )
 
 
