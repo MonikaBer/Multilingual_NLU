@@ -1,4 +1,4 @@
-import torch 
+import torch
 from torch.utils.data import Dataset
 import utils
 from typing import Union
@@ -7,7 +7,7 @@ import os
 import re
 import numpy as np
 from sklearn.model_selection import train_test_split
-
+import re
 import utils
 
 class BaseDataFrame():
@@ -48,7 +48,7 @@ class BaseDataFrame():
 
         def pr_labels(row):
             return process.new_target(row.text)
-        
+
         def pr_text(row):
             return process.new_text(row.text)
 
@@ -117,7 +117,7 @@ class ProcessToNERDataFrame(TrainingDataFrame):
         super().__init__()
         self.path = self.prepare_data(config)
         self.df, self.encoded_labels = self._prepare_df(config, self.path)
-    
+
     def remove_invalid_data(self, df):
         return df[df.label != 'None_wrong_record']
 
@@ -132,14 +132,14 @@ class ProcessToNERDataFrame(TrainingDataFrame):
         new_df = self.split_data(new_df)
         new_df = self.remove_invalid_data(new_df)
 
-        return new_df, encoded_labels 
+        return new_df, encoded_labels
 
 class ProcessedDataFrame(TrainingDataFrame):
     def __init__(self, config):
         super().__init__()
         self.path = self.prepare_data(config)
         self.df, self.encoded_labels = self._prepare_df(config, self.path)
-    
+
     def _prepare_df(self, config, dataset_path):
         print(f"Loading {dataset_path}")
         df = self.load_data(dataset_path)
@@ -150,6 +150,7 @@ class ProcessedDataFrame(TrainingDataFrame):
         df['label'] = df.relation.replace(encoded_labels)
         #print(df.relation.value_counts())
         #print(df.index.values)
+        #df = self.remove_tags_from_df(df)
 
         # split dataset
         X_train, X_val, y_train, y_val = train_test_split(
@@ -166,7 +167,7 @@ class ProcessedDataFrame(TrainingDataFrame):
         df.groupby(['relation', 'label', 'data_type']).count()
 
         return df, encoded_labels
-        
+
 class ProcessedTestDataFrame(TestDataFrame):
     def __init__(self, config):
         self.langs = config.langs
@@ -258,7 +259,7 @@ class DataSeqClassification(Dataset):
         ids = self.get_input_ids(idx).to(self.device)
 
         return {
-            'input_ids': ids, 
+            'input_ids': ids,
             'attention_mask': attention_mask,
             'labels': label
             }
@@ -353,7 +354,7 @@ class TaggingDataset(Dataset):
         ids = self.get_input_ids(idx).to(self.device)
 
         return {
-            'input_ids': ids, 
+            'input_ids': ids,
             'attention_mask': attention_mask,
             'labels': label
             }
@@ -394,7 +395,7 @@ class EntityContainer():
         if(numb_entities != len(self.entities)):
             return self.none_value
             #raise Exception(f"Found different number of entities. Assumed number: {numb_entities}. Real number: {len(self.entities)}")
-        
+
         special_one_line_idxs = []
         # first iteration - set start and end
         target = ['0'] * numb_words
@@ -421,12 +422,12 @@ class EntityContainer():
             elif 'I-ent' in t:
                 repeat = False
                 continue
-            
+
             if(repeat):
                 target[idx] = to_repeat
 
         return target
-            
+
 class ProcessTokens():
     def __init__(self, numb_entities=2):
         self.regex = re.compile("<e[0-9]+>|<\/e[0-9]+>")
@@ -467,7 +468,7 @@ class ProcessTokens():
                 if(len(self.regex_prefix_str.findall(s)) != 0): # abc<e1>abc
                         numb_of_added_words += 1
                         sum_numb_of_added_words += 1
-                
+
             lookback = self.regex_lookback.findall(s)
             if(len(lookback) != 0): # abc</e1>
                 end = idx
@@ -485,14 +486,14 @@ class ProcessTokens():
                     entity_number = self.regex_get_entity_number.findall(single[0])
                     if(len(self.regex_entity_start.findall(single)) != 0):
                         buffer.add(
-                            entity_number=entity_number[0], 
-                            start=self._getRealIndex(idx, sum_numb_of_removed_words, sum_numb_of_added_words), 
+                            entity_number=entity_number[0],
+                            start=self._getRealIndex(idx, sum_numb_of_removed_words, sum_numb_of_added_words),
                             numb_of_added_words=numb_of_added_words
                         )
                     else:
                         buffer.add(
-                            entity_number=entity_number[0], 
-                            end=self._getRealIndex(idx, sum_numb_of_removed_words, sum_numb_of_added_words), 
+                            entity_number=entity_number[0],
+                            end=self._getRealIndex(idx, sum_numb_of_removed_words, sum_numb_of_added_words),
                             numb_of_added_words=numb_of_added_words
                         )
                     sum_numb_of_removed_words += 1
@@ -500,7 +501,7 @@ class ProcessTokens():
                 buffer.add(entity_number=entity_number[0], start=start, end=end, numb_of_added_words=numb_of_added_words)
 
         return buffer._convertToTarget(
-            numb_entities=self.numb_entities, 
+            numb_entities=self.numb_entities,
             numb_words=len(splits) - sum_numb_of_removed_words + sum_numb_of_added_words
         )
 
@@ -525,4 +526,3 @@ class ProcessTokens():
                 except:
                     label_ids.append(-100)
             previous_word_idx = word_idx
-
