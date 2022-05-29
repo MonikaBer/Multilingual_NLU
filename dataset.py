@@ -74,14 +74,12 @@ class TrainingDataFrame(BaseDataFrame):
 
     @staticmethod
     def _create_joint_dataset(data_dir, languages, new_dataset_path):
-        with open(new_dataset_path, 'w') as fWrite:
-            for lang_nr, lang in enumerate(languages):
-                path = data_dir + lang + "_corpora_train2.tsv"
-                with open(path) as fRead:
-                    for line in fRead:
-                        if lang_nr > 0 and line[:2] == "id":
-                            continue
-                        fWrite.write(line)
+        dfs = []
+        for lang_nr, lang in enumerate(languages):
+            path = data_dir + lang + "_corpora_train2.tsv"
+            dfs.append(pd.read_csv(path, sep = '\t'))
+        new_df = pd.concat(dfs, ignore_index=True)  # .drop_duplicates(subset='id').reset_index(drop=True) # if id can be duplicated
+        new_df.to_csv(new_dataset_path, sep='\t', index=False)
 
     def prepare_data(self, config):
         #Remove rare Relations from training and testing data
