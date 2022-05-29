@@ -157,7 +157,7 @@ class ProcessedTestDataFrame(TestDataFrame):
         full_df = pd.concat(dfs, ignore_index=True)
         label_to_id, _ = self._encode_labels(full_df) # from full dataframe to be unique
 
-        for test_df in dfs:
+        for test_df, l in zip(dfs, self.langs):
             test_df['label_id'] = test_df.apply(lambda row: label_to_id[row['label']], axis=1)
             test_df = self.convert_to_ner_data(test_df)
             yield test_df, l, label_to_id
