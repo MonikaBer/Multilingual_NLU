@@ -60,18 +60,18 @@ class EntityTagging(BaseModel):
         super().__init__(config)
 
 class BertModel(torch.nn.Module):
-    def __init__(self, config, encoded_labels):
+    def __init__(self, config, label_to_id):
         super(BertModel, self).__init__()
-        self.bert = BertForTokenClassification.from_pretrained('bert-base-cased', num_labels=len(encoded_labels)).to(config.device)
+        self.bert = BertForTokenClassification.from_pretrained('bert-base-cased', num_labels=len(label_to_id)).to(config.device)
 
     def forward(self, input_ids, attention_mask, labels):
         output = self.bert(input_ids=input_ids, attention_mask=attention_mask, labels=labels, return_dict=False)
         return output
 
 class BertModelSpecial(torch.nn.Module):
-    def __init__(self, config, encoded_labels):
+    def __init__(self, config, label_to_id):
         super(BertModel, self).__init__()
-        self.bert = BertForTokenClassification.from_pretrained('bert-base-cased', num_labels=len(encoded_labels * 4)).to(config.device)
+        self.bert = BertForTokenClassification.from_pretrained('bert-base-cased', num_labels=len(label_to_id * 4)).to(config.device)
 
     def forward(self, input_ids, attention_mask, labels):
         output = self.bert(input_ids=input_ids, attention_mask=attention_mask, labels=labels, return_dict=False)

@@ -11,82 +11,6 @@ import dataloader
 from dataset import DataSeqClassification
 
 class Executor():
-    def train_loop_tagging(model, df_train, df_val):
-
-        train_dataset = DataSequence(df_train)
-        val_dataset = DataSequence(df_val)
-
-        train_dataloader = DataLoader(train_dataset, num_workers=4, batch_size=1, shuffle=True)
-        val_dataloader = DataLoader(val_dataset, num_workers=4, batch_size=1)
-
-        use_cuda = torch.cuda.is_available()
-        device = torch.device("cuda" if use_cuda else "cpu")
-
-        optimizer = SGD(model.parameters(), lr=LEARNING_RATE)
-
-        if use_cuda:
-            model = model.cuda()
-
-        best_acc = 0
-        best_loss = 1000
-
-        for epoch_num in range(EPOCHS):
-
-            total_acc_train = 0
-            total_loss_train = 0
-
-            model.train()
-
-            for train_data, train_label in tqdm(train_dataloader):
-
-                train_label = train_label[0].to(device)
-                mask = train_data['attention_mask'][0].to(device)
-                input_ids = train_data['input_ids'][0].to(device)
-
-                optimizer.zero_grad()
-                loss, logits = model(input_ids, mask, train_label)
-
-                logits_clean = logits[0][train_label != -100]
-                label_clean = train_label[train_label != -100]
-
-                predictions = logits_clean.argmax(dim=1)
-
-                acc = (predictions == label_clean).float().mean()
-                total_acc_train += acc
-                total_loss_train += loss.item()
-
-                loss.backward()
-                optimizer.step()
-
-            model.eval()
-
-            total_acc_val = 0
-            total_loss_val = 0
-
-            for val_data, val_label in val_dataloader:
-
-                val_label = val_label[0].to(device)
-                mask = val_data['attention_mask'][0].to(device)
-
-                input_ids = val_data['input_ids'][0].to(device)
-
-                loss, logits = model(input_ids, mask, val_label)
-
-                logits_clean = logits[0][val_label != -100]
-                label_clean = val_label[val_label != -100]
-
-                predictions = logits_clean.argmax(dim=1)          
-
-                acc = (predictions == label_clean).float().mean()
-                total_acc_val += acc
-                total_loss_val += loss.item()
-
-            val_accuracy = total_acc_val / len(df_val)
-            val_loss = total_loss_val / len(df_val)
-
-            print(
-                f'Epochs: {epoch_num + 1} | Loss: {total_loss_train / len(df_train): .3f} | Accuracy: {total_acc_train / len(df_train): .3f} | Val_Loss: {total_loss_val / len(df_val): .3f} | Accuracy: {total_acc_val / len(df_val): .3f}')
-
     def train_loop_relation(config, model, dataloader_train, dataloader_val):
         for epoch in tqdm(range(1, config.epochs + 1)):
             model.train()
@@ -142,7 +66,7 @@ class Executor():
         # model.load_state_dict(torch.load(f'{config.model_path}_epoch_1.model', map_location = torch.device(config.device)))
 
         for it in dataframe_test.iter_df(): # because it is a generator, tuple does not work here
-            df, lang, encoded_labels = it[0], it[1], it[2]
+            df, lang, label_to_id = it[0], it[1], it[2]
 
             dataset_test = DataSeqClassification(
                 df=df, 
@@ -156,7 +80,7 @@ class Executor():
             tqdm.write(f'#### Test model for lang {lang} ####')
 
             _, predictions, true_vals = Executor.evaluate(dataloader_test.dataloader, model, config)
-            accuracy_per_class(predictions, true_vals, encoded_labels)
+            accuracy_per_class(predictions, true_vals, label_to_id)
 
     def evaluate(dataloader, model, config):
         model.eval()

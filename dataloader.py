@@ -6,8 +6,6 @@ from transformers import BertTokenizer
 from metrics import f1_score_func, accuracy_per_class
 from utils import *
 
-from dataset import DataSeqClassification
-
 
 class BaseLoader():
     def __init__(self):

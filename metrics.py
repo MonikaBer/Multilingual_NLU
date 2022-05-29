@@ -6,8 +6,8 @@ def f1_score_func(preds, labels):
     labels_flat = labels.flatten()
     return f1_score(labels_flat, preds_flat, average = 'weighted')
 
-def accuracy_per_class(preds, labels, encoded_labels):
-    label_dict_inverse = {v: k for k, v in encoded_labels.items()}
+def accuracy_per_class(preds, labels, label_to_id):
+    label_dict_inverse = {v: k for k, v in label_to_id.items()}
 
     preds_flat = np.argmax(preds, axis = 1).flatten()
     labels_flat = labels.flatten()

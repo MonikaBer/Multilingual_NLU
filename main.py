@@ -9,12 +9,11 @@ import dataloader
 from  executor import Executor
 from tokenizer import Tokenizer
 from dataset import (
-    DataSeqClassification, 
-    ProcessedDataFrame,
-    ProcessToNERDataFrame, 
+    DataSeqClassification,
     ProcessedTestDataFrame,
     ProcessTokens,
-    TaggingDataset
+    TaggingDataset,
+    TrainHERBERTaDataFrame,
 )
 
 
@@ -154,9 +153,22 @@ def main():
     if args.task == "R":
         tokenizer = Tokenizer('m-bert')  
 
-        my_data_frame = ProcessedDataFrame(config)
+        my_data_frame = TrainHERBERTaDataFrame(config)
 
-        model = RelationClassifier(config, len(my_data_frame.encoded_labels))
+        ### test
+        """datase = TaggingDataset(
+            df=my_data_frame.df, 
+            max_length=config.max_length, 
+            tokenizer=tokenizer,
+            config=config,
+            mode='val'
+        )
+
+        exit()
+        """
+        ### end test
+
+        model = RelationClassifier(config, len(my_data_frame.label_to_id))
         model.set_optimizer(config)
         
         train_loop(

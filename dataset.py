@@ -14,9 +14,7 @@ class BaseDataFrame():
     def __init__(self):
         pass
 
-    def load_data(self, dataset_path):
-        df = pd.read_csv(dataset_path, sep = '\t')
-        # remove the unnecessary columns
+    def _remove_columns(self, df):
         columns = ['id', 'entity_1', 'entity_2', 'lang']
         toDropColumns = []
         for c in columns:
@@ -24,23 +22,33 @@ class BaseDataFrame():
                 toDropColumns.append(c)
         if (len(toDropColumns) != 0):
             df = df.drop(columns = toDropColumns)
+        return df
 
-        # rename columns
+    def _rename_columns(self, df):
         toRename = {'label':'relation'}
         toRenameConfirm = {}
         for key, val in toRename.items():
             if key in df:
                 toRenameConfirm[key] = val
         df.rename(columns = toRenameConfirm, inplace = True)
-        #print(df.head())
+        return df
+
+    def load_data(self, dataset_path):
+        df = pd.read_csv(dataset_path, sep = '\t')
+        #df = self._remove_columns(df)
+        #df = self._rename_columns(df)
         return df
 
     def _encode_labels(self, df):
-        possible_labels = df.relation.unique()
-        label_dict = {}
+        possible_labels = df.label.unique()
+        label_to_id = {}
+        id_to_label = {}
+
         for index, possible_label in enumerate(sorted(possible_labels)):
-            label_dict[possible_label] = index
-        return label_dict
+            label_to_id[possible_label] = index
+            id_to_label[index] = possible_label
+
+        return label_to_id, id_to_label
 
     def convert_to_ner_data(self, df: pd.DataFrame):
         texts = df.text.values.tolist()
@@ -52,15 +60,15 @@ class BaseDataFrame():
         def pr_text(row):
             return process.new_text(row.text)
 
-        df['label'] = df.apply(pr_labels, axis=1)
-        df['text'] = df.apply(pr_text, axis=1)
+        df['label_ner'] = df.apply(pr_labels, axis=1)
+        df['text_ner'] = df.apply(pr_text, axis=1)
 
         return df
 
-    def split_data(self, df: pd.DataFrame):
+    def split_data(self, df: pd.DataFrame, config):
         # return train, val, test
         train, val = np.split(df.sample(frac=1, random_state=42),
-                            [int(.8 * len(df))]) # split as 0, 0.8, 1.0
+                            [int((1.0 - config.test_size) * len(df))]) # split as 0, 0.85, 1.0
         train['data_type'] = 'train'
         val['data_type'] = 'val'
         new_df = pd.concat([train, val])
@@ -70,7 +78,7 @@ class TrainingDataFrame(BaseDataFrame):
     def __init__(self):
         self.path = None
         self.df = None
-        self.encoded_labels = None
+        self.label_to_id = None
 
     @staticmethod
     def _create_joint_dataset(data_dir, languages, new_dataset_path):
@@ -107,15 +115,15 @@ class TrainingDataFrame(BaseDataFrame):
             self._create_joint_dataset(config.data_dir, config.langs, dataset_path)
         return dataset_path
 
-
 class TestDataFrame(BaseDataFrame):
     pass
 
-class ProcessToNERDataFrame(TrainingDataFrame):
+
+
+class TrainHERBERTaDataFrame(TrainingDataFrame):
     def __init__(self, config):
-        super().__init__()
         self.path = self.prepare_data(config)
-        self.df, self.encoded_labels = self._prepare_df(config, self.path)
+        self.df, self.label_to_id, self.id_to_label = self._prepare_df(config, self.path)
 
     def remove_invalid_data(self, df):
         return df[df.label != 'None_wrong_record']
@@ -125,47 +133,14 @@ class ProcessToNERDataFrame(TrainingDataFrame):
         df = self.load_data(dataset_path)
         new_df = self.convert_to_ner_data(df)
 
-        encoded_labels = self._encode_labels(new_df)
+        label_to_id, id_to_label = self._encode_labels(new_df)
+        new_df['label_id'] = new_df.apply(lambda row: label_to_id[row['label']], axis=1)
 
         # split dataset
-        new_df = self.split_data(new_df)
+        new_df = self.split_data(new_df, config)
         new_df = self.remove_invalid_data(new_df)
 
-        return new_df, encoded_labels
-
-class ProcessedDataFrame(TrainingDataFrame):
-    def __init__(self, config):
-        super().__init__()
-        self.path = self.prepare_data(config)
-        self.df, self.encoded_labels = self._prepare_df(config, self.path)
-
-    def _prepare_df(self, config, dataset_path):
-        print(f"Loading {dataset_path}")
-        df = self.load_data(dataset_path)
-        #print(possible_labels)
-        encoded_labels = self._encode_labels(df)
-        #print(encoded_labels)
-
-        df['label'] = df.relation.replace(encoded_labels)
-        #print(df.relation.value_counts())
-        #print(df.index.values)
-        #df = self.remove_tags_from_df(df)
-
-        # split dataset
-        X_train, X_val, y_train, y_val = train_test_split(
-            df.index.values,
-            df.label.values,
-            test_size = config.test_size,
-            random_state = config.random_state,
-            stratify = df.label.values
-        )
-
-        df['data_type'] = ['not_set'] * df.shape[0]
-        df.loc[X_train, 'data_type'] = 'train'
-        df.loc[X_val, 'data_type'] = 'val'
-        df.groupby(['relation', 'label', 'data_type']).count()
-
-        return df, encoded_labels
+        return new_df, label_to_id, id_to_label
 
 class ProcessedTestDataFrame(TestDataFrame):
     def __init__(self, config):
@@ -176,35 +151,11 @@ class ProcessedTestDataFrame(TestDataFrame):
         for l in self.langs:
             test_dataset_path = self.data_dir + l + "_corpora_test2.tsv"
             test_df = self.load_data(test_dataset_path)
-            encoded_labels = self._encode_labels(test_df)
-            test_df['label'] = test_df.relation.replace(encoded_labels)
-            yield test_df, l, encoded_labels
+            label_to_id, _ = self._encode_labels(test_df)
+            test_df['label_id'] = test_df.apply(lambda row: label_to_id[row['label']], axis=1)
+            yield test_df, l, label_to_id
 
 
-
-class DataSequence(Dataset):
-    def __init__(self, df):
-        super().__init__()
-        lb = [i.split() for i in df['labels'].values.tolist()]
-        txt = df['text'].values.tolist()
-        self.texts = [tokenizer(str(i),
-                               padding='max_length', max_length = 512, truncation=True, return_tensors="pt") for i in txt]
-        self.labels = [align_label(i,j) for i,j in zip(txt, lb)]
-
-    def __len__(self):
-        return len(self.labels)
-
-    def get_batch_data(self, idx):
-        return self.texts[idx]
-
-    def get_batch_labels(self, idx):
-        return torch.LongTensor(self.labels[idx])
-
-    def __getitem__(self, idx):
-        batch_data = self.get_batch_data(idx)
-        batch_labels = self.get_batch_labels(idx)
-
-        return batch_data, batch_labels
 
 class DataSeqClassification(Dataset):
     def __init__(self, df: pd.DataFrame, max_length, tokenizer, config, mode: str):
@@ -238,7 +189,7 @@ class DataSeqClassification(Dataset):
         self.input_ids = self.encoded_data['input_ids']
         # identify whether a token is a real token or padding
         self.attention_mask = self.encoded_data['attention_mask']
-        self.labels = torch.tensor(df_in_use.label.values.tolist())
+        self.labels = torch.tensor(df_in_use.label_id.values.tolist())
 
     def __len__(self):
         return len(self.labels)
@@ -288,9 +239,9 @@ class TaggingDataset(Dataset):
         else:
             raise Exception("Unknown dataset type")
 
-        txt = df_in_use.text.values.tolist()
+        txt = df_in_use.text_ner.values.tolist()
         self.device = config.device
-        self.labels = df_in_use.label.values
+        self.labels = df_in_use.label_ner.values
 
         self.encoded_data = tokenizer(
             txt,
@@ -308,8 +259,8 @@ class TaggingDataset(Dataset):
 
         # wygląda ok
         #print(txt[1])
-        #print(self.get_label(1))
         #print(self.labels[1])
+        #print(self.get_label(1))
         #exit()
 
     def convert_ner_label_to_indices(self, label: list):
@@ -357,6 +308,9 @@ class TaggingDataset(Dataset):
             'attention_mask': attention_mask,
             'labels': label
             }
+
+
+
 
 # regex lookup for <eX> </eX>
 class EntityDataClass():
