@@ -13,22 +13,22 @@ def str2list(s):
 class Config:
     def __init__(
         self,
-        data_dir,
-        langs,
-        model_path,
-        device,
-        batch_size,
-        max_length,
-        epochs,
-        random_state,
-        test_size,
-        lr,
-        eps,
-        warmup_steps,
-        seed,
-        max_norm,
-        fast_dev_run,
-        batch_fast_dev_run
+        data_dir=None,
+        langs=None,
+        model_path=None,
+        device=None,
+        batch_size=None,
+        max_length=None,
+        epochs=None,
+        random_state=None,
+        test_size=None,
+        lr=None,
+        eps=None,
+        warmup_steps=None,
+        seed=None,
+        max_norm=None,
+        fast_dev_run=None,
+        batch_fast_dev_run=None
     ):
         self.data_dir = data_dir
         self.model_path = model_path

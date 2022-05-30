@@ -121,8 +121,11 @@ class TestDataFrame(BaseDataFrame):
 
 
 class TrainHERBERTaDataFrame(TrainingDataFrame):
-    def __init__(self, config):
-        self.path = self.prepare_data(config)
+    def __init__(self, config, debug_path=None):
+        if(debug_path is not None):
+            self.path = debug_path
+        else:
+            self.path = self.prepare_data(config)
         self.df, self.label_to_id, self.id_to_label = self._prepare_df(config, self.path)
 
     def remove_invalid_data(self, df):
