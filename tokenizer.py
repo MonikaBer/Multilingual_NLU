@@ -10,6 +10,11 @@ class Tokenizer():
                 "bert-base-multilingual-cased",
                 do_lower_case = False
             )
+        elif(token_type == 'large-bert'):
+            self.instance = BertTokenizerFast.from_pretrained(
+                "bert-large-uncased-whole-word-masking-finetuned-squad",
+                do_lower_case = False
+            )
 
         #self.instance.add_special_tokens({
         #    'additional_special_tokens': 

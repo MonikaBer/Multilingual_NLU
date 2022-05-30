@@ -6,7 +6,7 @@ import transformers
 
 from metrics import f1_score_func
 from utils import *
-from transformers import BertForTokenClassification
+from transformers import BertForQuestionAnswering
 
 
 class BaseModel(nn.Module):
@@ -60,8 +60,40 @@ class RelationClassifier(BaseModel, nn.Module):
         )
         return model.to(device)
         
-class EntityTagging(BaseModel):
-    def __init__(self, config):
+class EntityTagging(BaseModel, nn.Module):
+    def __init__(self, config, num_labels, output_layer_size, loss_f):
         super().__init__()
-        self.model = BertForTokenClassification.from_pretrained('bert-base-cased', num_labels=4).to(config.device)
+        # 'bert-large-uncased-whole-word-masking-finetuned-squad'
+        # 'bert-base-cased'
+        self.model = BertForQuestionAnswering.from_pretrained('bert-large-uncased-whole-word-masking-finetuned-squad').to(config.device)
         self.num_labels = num_labels
+        self.loss_f = loss_f
+
+        self.linear1 = torch.nn.Linear(output_layer_size, 1024)
+        self.linear2 = torch.nn.Linear(output_layer_size, 1024)
+        self.linear3 = torch.nn.Linear(output_layer_size, 1024)
+        self.linear4 = torch.nn.Linear(output_layer_size, 1024)
+
+    def forward(self, input_ids, attention_mask, exact_pos_in_token, **kwargs): # other args ignore
+        #print('input_ids', input_ids.size())
+        #print('input_ids', input_ids)
+        #print('attention_mask', attention_mask.size())
+        #print('start_positions', start_positions.size())
+        #print('start_positions', start_positions)
+        #print('end_positions', end_positions.size())
+        #print('end_positions', end_positions)
+        #exit()
+        _, o = self.model( # ignore loss [4, 256]
+            input_ids=input_ids, 
+            attention_mask=attention_mask, 
+            #start_positions=start_positions, 
+            #end_positions=end_positions,
+            return_dict=False
+        )
+        o1 = self.linear1(o)
+        o2 = self.linear2(o)
+        o3 = self.linear3(o)
+        o4 = self.linear4(o)
+        output = torch.stack([o1, o2, o3, o4], dim=0) # <indices, batch, tokens number> [4, 4, 1024]
+        loss = self.loss_f(output, exact_pos_in_token)
+        return loss, output

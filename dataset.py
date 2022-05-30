@@ -126,7 +126,7 @@ class TrainHERBERTaDataFrame(TrainingDataFrame):
         self.df, self.label_to_id, self.id_to_label = self._prepare_df(config, self.path)
 
     def remove_invalid_data(self, df):
-        return df[df.label != 'None_wrong_record']
+        return df[df.label_ner != 'None_wrong_record']
 
     def _prepare_df(self, config, dataset_path):
         print(f"Loading {dataset_path}")
@@ -242,6 +242,7 @@ class TaggingDataset(Dataset):
         self.e1_name_end = 'I-ent1'
         self.e2_name_start = 'B-ent2'
         self.e2_name_end = 'I-ent2'
+        self.regex_gen_number = re.compile('[IB]\-ent(.*)')
 
         if(mode == 'val'):
             df_in_use = df[df.data_type == 'val']
@@ -252,12 +253,12 @@ class TaggingDataset(Dataset):
         else:
             raise Exception("Unknown dataset type")
 
-        txt = df_in_use.text_ner.values.tolist()
+        self.txt = df_in_use.text_ner.values.tolist()
         self.device = config.device
         self.labels = df_in_use.label_ner.values
 
         self.encoded_data = tokenizer(
-            txt,
+            self.txt,
             add_special_tokens = True,
             return_attention_mask = True,
             padding='max_length',
@@ -322,6 +323,115 @@ class TaggingDataset(Dataset):
             'labels': label
             }
 
+    def get_ids_size(self):
+        return len(self.input_ids[0])
+
+class QADataset(TaggingDataset):
+    def __init__(self, df: pd.DataFrame, max_length, tokenizer, config, mode: str):
+        super().__init__(df, max_length, tokenizer, config, mode)
+
+    def convert_QA_label_to_indices(self, label: list):
+        e1_end = None
+        e2_end = None
+
+        start_idxs = [-1, -1]
+        end_idxs = [-1, -1]
+        for idx, l in enumerate(label):
+            if l == self.e1_name_start or l == self.e2_name_start:
+                number = int(self.regex_gen_number.findall(l)[0]) - 1
+                start_idxs[number] = idx
+            elif l == self.e1_name_end or l == self.e2_name_end:
+                number = int(self.regex_gen_number.findall(l)[0]) - 1
+                end_idxs[number] = idx
+
+        idx = 0
+        if(idx not in end_idxs):
+            end_idxs[idx] = start_idxs[idx]
+        idx = 1
+        if(idx not in end_idxs):
+            end_idxs[idx] = start_idxs[idx]
+        #print('bbb', end_idxs)
+        #print('aaa', start_idxs)
+        return start_idxs, end_idxs
+ 
+    def get_label_QA(self, idx):
+        return self.convert_QA_label_to_indices(self.labels[idx])
+
+    def get_label_classification(self, idx, ids_size):
+        # returns tensor like [0, 0, 1, 1, 1, 0, 0, 2, 2, 2, 0, 0, 0]
+        lab = self.labels[idx]
+        default = [0.0] * ids_size # for example to 256, not to len(lab) = 35
+        for idx, l in enumerate(lab):
+            result = self.regex_gen_number.findall(l)
+            if(len(result) != 0):
+                default[idx] = float(result[0])
+        return default
+
+    def convert_to_tokenized_word(self, indexes_start: list, indexes_end: list):
+        '''
+            Converts ids from word count to token count.
+        '''
+        word_ids = self.encoded_data.word_ids()
+
+        new_indexes_start = [-1, -1]
+        new_indexes_end = [-1, -1]
+        # assuming word_ids is increasing
+        for idx, w_id in enumerate(word_ids):
+            if w_id is None:
+                continue
+            # early stop
+            if(w_id == indexes_start[0] and new_indexes_start[0] == -1):
+                new_indexes_start[0] = idx
+            elif(w_id == indexes_start[1] and new_indexes_start[1] == -1):
+                new_indexes_start[1] = idx
+
+            # do not stop
+            if(w_id == indexes_end[0]):
+                new_indexes_end[0] = idx
+            elif(w_id == indexes_end[1]):
+                new_indexes_end[1] = idx
+
+        return new_indexes_start, new_indexes_end
+
+    def __getitem__(self, idx):
+        '''
+            Returns labels in form of 4 indices <e1_start, e1_end, e2_start, e2_end>
+        '''
+        attention_mask = self.get_attention_mask(idx).to(self.device)
+        ids = self.get_input_ids(idx).to(self.device)
+
+        vector_label = torch.tensor(self.get_label_classification(idx, len(ids))).to(self.device)
+        start_positions, end_positions = self.get_label_QA(idx)
+        start_positions, end_positions = self.convert_to_tokenized_word(start_positions, end_positions)
+        exact_pos_in_token = torch.tensor([
+            start_positions[0],
+            end_positions[0],
+            start_positions[1],
+            end_positions[1]
+        ])
+        start_positions = torch.tensor(start_positions, dtype=torch.long).to(self.device)
+        end_positions = torch.tensor(end_positions, dtype=torch.long).to(self.device)
+        
+
+        #start_positions = start_positions[0]
+        #end_positions = end_positions[0]
+
+        if(-1 in end_positions or -1 in start_positions):
+            raise Exception(f"Could not find start or end for row {idx}. Check data csv for errors.\n" +
+            f"start: {start_positions}\nend: {end_positions}\ntext: {self.txt[idx]}")
+
+        #print(vector_label.size())
+        #print(exact_pos_in_token.size())
+        #print(ids.size())
+
+        return {
+            'input_ids': ids,
+            'attention_mask': attention_mask,
+            'start_positions': start_positions,
+            'end_positions': end_positions,
+            'exact_pos_in_token': exact_pos_in_token,
+            'vector_label': vector_label,
+            }
 
 
 
@@ -470,25 +580,3 @@ class ProcessTokens():
             numb_entities=self.numb_entities,
             numb_words=len(splits) - sum_numb_of_removed_words + sum_numb_of_added_words
         )
-
-    def processInput(self, encoded_data):
-        tokens = encoded_data['input_ids']
-        word_ids = tokens.word_ids()
-
-        previous_word_idx = None
-        label_ids = []
-        for word_idx in word_ids:
-            if word_idx is None:
-                label_ids.append(-100)
-
-            elif word_idx != previous_word_idx:
-                try:
-                    label_ids.append(labels_to_ids[labels[word_idx]])
-                except:
-                    label_ids.append(-100)
-            else:
-                try:
-                    label_ids.append(labels_to_ids[labels[word_idx]] if label_all_tokens else -100)
-                except:
-                    label_ids.append(-100)
-            previous_word_idx = word_idx

@@ -4,6 +4,7 @@ from config import Config
 from model import RelationClassifier, EntityTagging
 from EntityTagger import EntityTagger
 
+import torch
 import utils
 import dataloader
 from  executor import Executor
@@ -14,7 +15,10 @@ from dataset import (
     ProcessTokens,
     TaggingDataset,
     TrainHERBERTaDataFrame,
+    QADataset,
 )
+
+from loss import QAVectorLossFunction
 
 
 def get_parser():
@@ -162,52 +166,46 @@ def for_model_1(config):
     )
 
 def for_model_2(config):
-    tokenizer = Tokenizer('m-bert')  
+    tokenizer = Tokenizer('large-bert')  
     my_data_frame = TrainHERBERTaDataFrame(config)
-
-    model = EntityTagging(config)
-    model.set_optimizer(config)
     
-    dataset_val = TaggingDataset(
+    dataset_val = QADataset(
         df=my_data_frame.df, 
         max_length=config.max_length, 
         tokenizer=tokenizer,
         config=config,
         mode='val'
     )   
-    dataset_train = TaggingDataset(
+    dataset_train = QADataset(
         df=my_data_frame.df, 
         max_length=config.max_length, 
         tokenizer=tokenizer,
         config=config,
         mode='train'
     )   
+    
+    loss_f = QAVectorLossFunction(torch.nn.CrossEntropyLoss())
+    model = EntityTagging(config, len(my_data_frame.label_to_id), dataset_train.get_ids_size(), loss_f=loss_f)
+    model.set_optimizer(config)
 
     dataloader_val = dataloader.SequenceClassificationDataLoader(config, tokenizer, dataset_val, 'val')
     dataloader_train = dataloader.SequenceClassificationDataLoader(config, tokenizer, dataset_train, 'train')
     
     model.set_scheduler(config, num_steps=len(dataloader_train.dataloader))
-    
-    #new_label = utils.align_label(
-    #    texts=data.df.text.values.tolist(),
-    #    tokenizer=tokenizer
-    #)
-    #print(new_label)
-    #print(model.tokenizer.convert_ids_to_tokens(data.encoded_data["input_ids"][0]))
-    #print((data.encoded_data["attention_mask"][0]))
-    #exit()
 
-    Executor.train_loop_relation(
+    Executor.train_loop_QA(
         config=config, 
         model=model, 
         dataloader_train=dataloader_train.dataloader, 
         dataloader_val=dataloader_val.dataloader)
 
+    my_test_data_frame = ProcessedTestDataFrame(config)
 
-    test_loop(
+    Executor.test_QA(
         config=config,
-        model=model,
-        tokenizer=tokenizer
+        tokenizer=tokenizer,
+        dataframe_test=my_test_data_frame,
+        model=model
     )
 
 def main():
