@@ -435,7 +435,7 @@ class QADataset(TaggingDataset):
             end_positions[0],
             start_positions[1],
             end_positions[1]
-        ])
+        ]).to(self.device)
         start_positions = torch.tensor(start_positions, dtype=torch.long).to(self.device)
         end_positions = torch.tensor(end_positions, dtype=torch.long).to(self.device)
         
