@@ -412,6 +412,7 @@ class QADataset(TaggingDataset):
         start_positions = torch.tensor(start_positions, dtype=torch.long).to(self.device)
         end_positions = torch.tensor(end_positions, dtype=torch.long).to(self.device)
         
+        default_labels = self.get_label(idx).to(self.device)
 
         #start_positions = start_positions[0]
         #end_positions = end_positions[0]
@@ -431,6 +432,7 @@ class QADataset(TaggingDataset):
             'end_positions': end_positions,
             'exact_pos_in_token': exact_pos_in_token,
             'vector_label': vector_label,
+            'labels': default_labels,
             }
 
 

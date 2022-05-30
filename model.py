@@ -34,7 +34,7 @@ class BaseModel(nn.Module):
     def save_checkpoint(self, epoch, config):
         torch.save(self.model.state_dict(), f'{config.model_path}_{self.__class__.__name__}_epoch_{epoch}.model')
 
-    def forward(self, input_ids, attention_mask, labels):
+    def forward(self, input_ids, attention_mask, labels, **kwargs):
         #print('input_ids', input_ids.size())
         #print('attention_mask', attention_mask.size())
         #print('labels', labels.size())
