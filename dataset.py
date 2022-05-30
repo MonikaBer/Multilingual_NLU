@@ -348,13 +348,11 @@ class QADataset(TaggingDataset):
                 end_idxs[number] = idx
 
         idx = 0
-        if(idx not in end_idxs):
+        if(end_idxs[idx] == -1):
             end_idxs[idx] = start_idxs[idx]
         idx = 1
-        if(idx not in end_idxs):
+        if(end_idxs[idx] == -1):
             end_idxs[idx] = start_idxs[idx]
-        #print('bbb', end_idxs)
-        #print('aaa', start_idxs)
         return start_idxs, end_idxs
  
     def get_label_QA(self, idx):

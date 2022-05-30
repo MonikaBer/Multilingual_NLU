@@ -35,7 +35,7 @@ def test1():
     utils.set_seed(config.seed)
 
     tokenizer = Tokenizer('large-bert')  
-    dataframe = TrainHERBERTaDataFrame(config, debug_path="data/in_use_data/test.tsv")
+    dataframe = TrainHERBERTaDataFrame(config, debug_path="data/datasets/NEW_es_pl_ru_corpora_train2.tsv")
     train = QADataset(
         df=dataframe.df,
         max_length=config.max_length, 
@@ -52,8 +52,9 @@ def test1():
         mode='val'
     )
 
-    get = train[0]
-    print(get)
+    for idx, _ in enumerate(dataframe.df):
+        get = val[idx]
+    #print(get)
 
 if __name__ == "__main__":
     test1()
