@@ -122,7 +122,7 @@ def train_loop(config, my_data_frame, tokenizer, model):
     )
 
 def test_loop(config, tokenizer, model):
-    my_data_frame = ProcessedTestDataFrame(config)
+    my_data_frame = ProcessedTestDataFrame(config, tokenizer=tokenizer)
 
     Executor.test(
         config=config,
@@ -134,7 +134,7 @@ def test_loop(config, tokenizer, model):
 def for_model_1(config):
     tokenizer = Tokenizer('m-bert')  
 
-    my_data_frame = TrainHERBERTaDataFrame(config)
+    my_data_frame = TrainHERBERTaDataFrame(config, tokenizer)
 
     ### test
     """datase = TaggingDataset(
@@ -167,7 +167,7 @@ def for_model_1(config):
 
 def for_model_2(config):
     tokenizer = Tokenizer('large-bert')  
-    my_data_frame = TrainHERBERTaDataFrame(config)
+    my_data_frame = TrainHERBERTaDataFrame(config, tokenizer=tokenizer)
     
     dataset_val = QADataset(
         df=my_data_frame.df, 
@@ -199,7 +199,7 @@ def for_model_2(config):
         dataloader_train=dataloader_train.dataloader, 
         dataloader_val=dataloader_val.dataloader)
 
-    my_test_data_frame = ProcessedTestDataFrame(config)
+    my_test_data_frame = ProcessedTestDataFrame(config, tokenizer=tokenizer)
 
     Executor.test_QA(
         config=config,

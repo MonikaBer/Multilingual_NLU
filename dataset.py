@@ -9,6 +9,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 import re
 import utils
+import math
 
 class BaseDataFrame():
     def __init__(self):
@@ -50,12 +51,18 @@ class BaseDataFrame():
 
         return label_to_id, id_to_label
 
-    def convert_to_ner_data(self, df: pd.DataFrame):
+    def convert_to_ner_data(self, df: pd.DataFrame, tokenizer, config):
         texts = df.text.values.tolist()
-        process = ProcessTokens()
+        process = EntityFinding()
 
         def pr_labels(row):
-            return process.new_target(row.text)
+            return process.new_target(
+                text=row.text, 
+                entity_1=row.entity_1, 
+                entity_2=row.entity_2,
+                tokenizer=tokenizer,
+                config=config
+            )
 
         def pr_text(row):
             return ProcessTokens.new_text(row.text)
@@ -121,20 +128,20 @@ class TestDataFrame(BaseDataFrame):
 
 
 class TrainHERBERTaDataFrame(TrainingDataFrame):
-    def __init__(self, config, debug_path=None):
+    def __init__(self, config, tokenizer, debug_path=None):
         if(debug_path is not None):
             self.path = debug_path
         else:
             self.path = self.prepare_data(config)
-        self.df, self.label_to_id, self.id_to_label = self._prepare_df(config, self.path)
+        self.df, self.label_to_id, self.id_to_label = self._prepare_df(config, self.path, tokenizer=tokenizer)
 
     def remove_invalid_data(self, df):
         return df[df.label_ner != 'None_wrong_record']
 
-    def _prepare_df(self, config, dataset_path):
+    def _prepare_df(self, config, dataset_path, tokenizer):
         print(f"Loading {dataset_path}")
         df = self.load_data(dataset_path)
-        new_df = self.convert_to_ner_data(df)
+        new_df = self.convert_to_ner_data(df, tokenizer, config)
 
         label_to_id, id_to_label = self._encode_labels(new_df)
         new_df['label_id'] = new_df.apply(lambda row: label_to_id[row['label']], axis=1)
@@ -146,9 +153,11 @@ class TrainHERBERTaDataFrame(TrainingDataFrame):
         return new_df, label_to_id, id_to_label
 
 class ProcessedTestDataFrame(TestDataFrame):
-    def __init__(self, config):
+    def __init__(self, config, tokenizer):
+        self.config = config
         self.langs = config.langs
         self.data_dir = config.data_dir
+        self.tokenizer = tokenizer
 
     def iter_df(self):
         dfs = []
@@ -162,7 +171,7 @@ class ProcessedTestDataFrame(TestDataFrame):
 
         for test_df, l in zip(dfs, self.langs):
             test_df['label_id'] = test_df.apply(lambda row: label_to_id[row['label']], axis=1)
-            test_df = self.convert_to_ner_data(test_df)
+            test_df = self.convert_to_ner_data(test_df, self.tokenizer, self.config)
             yield test_df, l, label_to_id
 
 
@@ -279,6 +288,7 @@ class TaggingDataset(Dataset):
         #print(self.labels[1])
         #print(self.get_label(1))
         #exit()
+        self.tokenizer = tokenizer
 
     def convert_ner_label_to_indices(self, label: list):
         e1_end = None
@@ -346,15 +356,17 @@ class QADataset(TaggingDataset):
             elif l == self.e1_name_end or l == self.e2_name_end:
                 number = int(self.regex_gen_number.findall(l)[0]) - 1
                 end_idxs[number] = idx
-
+        #print('aaa', start_idxs, end_idxs)
+        #print('label', label)
         idx = 0
         if(end_idxs[idx] == -1):
             end_idxs[idx] = start_idxs[idx]
         idx = 1
         if(end_idxs[idx] == -1):
             end_idxs[idx] = start_idxs[idx]
+        #print('bbb', start_idxs, end_idxs)    
         return start_idxs, end_idxs
- 
+        
     def get_label_QA(self, idx):
         return self.convert_QA_label_to_indices(self.labels[idx])
 
@@ -368,15 +380,27 @@ class QADataset(TaggingDataset):
                 default[idx] = float(result[0])
         return default
 
-    def convert_to_tokenized_word(self, indexes_start: list, indexes_end: list):
+    def convert_to_tokenized_word(self, indexes_start: list, indexes_end: list, idx):
         '''
             Converts ids from word count to token count.
         '''
-        word_ids = self.encoded_data.word_ids()
+        word_ids = self.encoded_data.word_ids(idx)
+        """ # not needed if use EntityFinding
+        counted_max_words = max([i for i in word_ids if i is not None])
+        text_split_count = len(utils.split_text(self.txt[idx]))
+        if(counted_max_words != text_split_count):
+            raise Exception("Wrong word split count. The number of words splited by this alg. is "+
+            "different than the number of words counted by tokenizer."+
+            f"\nword_ids count: {counted_max_words}\nText split count: {text_split_count}\nIdx: {idx}"+
+            f"\nTokenized word: {self.tokenizer.instance.decode(self.input_ids[idx])}" +
+            f"\nword_ids: {word_ids}\nText: {self.txt[idx]}")
+        """
 
         new_indexes_start = [-1, -1]
         new_indexes_end = [-1, -1]
         # assuming word_ids is increasing
+        print('ccc', indexes_start, indexes_end)
+        print(word_ids)
         for idx, w_id in enumerate(word_ids):
             if w_id is None:
                 continue
@@ -391,6 +415,7 @@ class QADataset(TaggingDataset):
                 new_indexes_end[0] = idx
             elif(w_id == indexes_end[1]):
                 new_indexes_end[1] = idx
+        print('ggg', new_indexes_start, new_indexes_end)
 
         return new_indexes_start, new_indexes_end
 
@@ -403,7 +428,8 @@ class QADataset(TaggingDataset):
 
         vector_label = torch.tensor(self.get_label_classification(idx, len(ids))).to(self.device)
         start_positions, end_positions = self.get_label_QA(idx)
-        start_positions, end_positions = self.convert_to_tokenized_word(start_positions, end_positions)
+        #print(self.tokenizer.instance.convert_ids_to_tokens(self.input_ids[idx]))
+        #start_positions, end_positions = self.convert_to_tokenized_word(start_positions, end_positions, idx)
         exact_pos_in_token = torch.tensor([
             start_positions[0],
             end_positions[0],
@@ -471,6 +497,10 @@ class EntityContainer():
         return len(self.entities)
 
     def _convertToTarget(self, numb_entities, numb_words):
+        '''
+            Converts from data EntityContainer (indexes of the tags <eX>) to form
+            ['B-ent1', 'I-ent1', '0', '0', '0', '0', '0', '0', 'B-ent2', '0', '0', '0', '0', '0', '0', '0']
+        '''
         if(numb_entities != len(self.entities)):
             return self.none_value
             #raise Exception(f"Found different number of entities. Assumed number: {numb_entities}. Real number: {len(self.entities)}")
@@ -527,11 +557,15 @@ class ProcessTokens():
         return new_text
 
     def new_target(self, text: str):
+        """
+            Converts from text string with tags <eX>, </eX> to target labels
+            to format like ['B-ent1', 'I-ent1', '0', '0', '0', '0', '0', '0', 'B-ent2', '0', '0', '0', '0', '0', '0', '0']
+        """
         sum_numb_of_removed_words = 0
         buffer = EntityContainer()
         sum_numb_of_added_words = 0
 
-        splits = text.split()
+        splits = utils.split_text(text)
         for idx, s in enumerate(splits):
             numb_of_added_words = 0 # if the one word need spaces, like '(<e1>abc</e1>,' need 2 spaces for (,
             start = None
@@ -583,3 +617,190 @@ class ProcessTokens():
             numb_entities=self.numb_entities,
             numb_words=len(splits) - sum_numb_of_removed_words + sum_numb_of_added_words
         )
+
+
+
+class SublistFinder():
+    def __init__(self, sublist: list):
+        new_sublist = []
+        stop_pad = False
+        for s in sublist:
+            if not (s is None or s == '[CLS]' or s == '[PAD]'):
+                new_sublist.append(s)
+
+        self.sublist = new_sublist
+        self.pos = 0
+        self.at_start_pos = -1
+        self.at_last_pos = -1
+
+    def process(self, token: str, at_pos):
+        #print(token, "==", self.sublist, "==", at_pos, "==", self.pos, "==", len(self.sublist))
+        if(self.pos == len(self.sublist)):
+            # found and it is OK
+            return
+        if(self.sublist[self.pos].lower() == token.lower()):
+            if(self.pos == 0):
+                self.at_start_pos = at_pos
+            self.pos += 1
+            self.at_last_pos = at_pos
+        else:
+            self.pos = 0
+
+    def found_sublist(self) -> bool:
+        #print(self.sublist, "==", self.pos, "==", len(self.sublist))
+        return self.pos == len(self.sublist)
+
+    def get_start_pos(self):
+        return self.at_start_pos
+
+    def get_end_pos(self):
+        return self.at_last_pos
+
+class EntityFinding():
+    def __init__(self):
+        self.none_value = 'None_wrong_record'
+
+    def new_text(text: str):
+        new_text = re.sub('<e[0-9]+>|<\/e[0-9]+>', ' ', text) # add default space, two spaces do nothing wrong
+        return new_text    
+
+    def new_target(self, text: str, entity_1, entity_2, tokenizer, config):
+        '''
+            Find entities in text by text comparsion with entity_1 and entity_2.
+            Convert to format like 
+            ['B-ent1', 'I-ent1', '0', '0', '0', '0', '0', '0', 'B-ent2', '0', '0', '0', '0', '0', '0', '0']
+            but this format is relative to the tokenized word
+        '''
+        if((isinstance(entity_1, float) and math.isnan(entity_1)) or 
+            (isinstance(entity_2, float) and math.isnan(entity_2))):
+            return self.none_value
+        text = EntityFinding.new_text(text)
+
+        encoded_text = tokenizer(
+            text,
+            add_special_tokens = True,
+            return_attention_mask = True,
+            padding='max_length',
+            max_length = config.max_length,
+            return_tensors = 'pt'
+        )
+
+        tokenized_text = tokenizer.instance.convert_ids_to_tokens(
+            encoded_text.input_ids[0]
+        )
+        tokenized_text = list(filter(lambda a: a != '[PAD]' and a != '[CLS]', tokenized_text))
+
+        text_word_ids = encoded_text.word_ids()
+
+        tokenized_entity_1 = tokenizer.instance.convert_ids_to_tokens(
+            tokenizer(
+                entity_1,
+                add_special_tokens = True,
+                return_attention_mask = True,
+                padding='max_length',
+                max_length = config.max_length,
+                return_tensors = 'pt'
+            ).input_ids[0]
+        )
+        tokenized_entity_1 = list(filter(lambda a: a != '[PAD]' and a != '[CLS]', tokenized_entity_1))
+        if tokenized_entity_1[-1] == '[SEP]':
+            tokenized_entity_1.pop()
+        
+        tokenized_entity_2 = tokenizer.instance.convert_ids_to_tokens(
+            tokenizer(
+                entity_2,
+                add_special_tokens = True,
+                return_attention_mask = True,
+                padding='max_length',
+                max_length = config.max_length,
+                return_tensors = 'pt'
+            ).input_ids[0]
+        )
+        tokenized_entity_2 = list(filter(lambda a: a != '[PAD]' and a != '[CLS]', tokenized_entity_2))
+        if tokenized_entity_2[-1] == '[SEP]':
+            tokenized_entity_2.pop()
+
+        if(tokenized_entity_1 is None or tokenized_entity_2 is None):
+            return self.none_value
+
+        e1_finder = SublistFinder(tokenized_entity_1)
+        e2_finder = SublistFinder(tokenized_entity_2)
+
+        entity_found = [False, False]
+        for idx, token in enumerate(tokenized_text):
+            e1_finder.process(token, idx)
+            e2_finder.process(token, idx)
+
+            if(e1_finder.found_sublist()):
+                e1_start = e1_finder.get_start_pos()
+                e1_end = e1_finder.get_end_pos()
+                entity_found[0] = True
+            if(e2_finder.found_sublist()):
+                e2_start = e2_finder.get_start_pos()
+                e2_end = e2_finder.get_end_pos()
+                entity_found[1] = True
+            if(entity_found[0] and entity_found[1]):
+                break
+
+        
+        if not (entity_found[0] and entity_found[1]):
+            #print(entity_found)
+            return self.none_value
+
+        #print(tokenized_text)
+        #print(e1_start)
+        #print(e1_end)
+        #print(e2_start)
+        #print(e2_end)
+        target = self._convertToTarget(e1_start, e1_end, e2_start, e2_end, config.max_length)
+        #print(text)
+        #print(target)
+        return target
+        
+    def _convertToTarget(self, e1_start, e1_end, e2_start, e2_end, numb_tokens):
+        '''
+            Converts from data EntityContainer (indexes of the tags <eX>) to form
+            ['B-ent1', 'I-ent1', '0', '0', '0', '0', '0', '0', 'B-ent2', '0', '0', '0', '0', '0', '0', '0']
+        '''
+
+        special_one_line_idxs = []
+        # first iteration - set start and end
+        target = ['0'] * numb_tokens
+
+        target[e1_end] = 'I-ent1'
+        target[e2_end] = 'I-ent2'
+        target[e1_start] = 'B-ent1'
+        target[e2_start] = 'B-ent2'
+
+        #print(target)
+
+        # second iteration - fill empty space between start and end
+        repeat = False
+        to_repeat = None
+        for idx, t in enumerate(reversed(target)):
+            idx = len(target) - idx - 1
+            if 'I-ent' in t:
+                repeat = True
+                to_repeat = t
+            elif 'B-ent' in t:
+                repeat = False
+
+            if(repeat):
+                target[idx] = to_repeat
+        #print(target)
+
+        ok = [False, False]
+        for idx, t in enumerate(target):
+            if 'B-ent1' in t:
+                ok[0] = True
+            if 'B-ent2' in t:
+                ok[1] = True
+        if(ok[0] == False or ok[1] == False):
+            return self.none_value
+
+        return target
+
+        
+
+
+    

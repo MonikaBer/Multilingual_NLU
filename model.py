@@ -69,10 +69,10 @@ class EntityTagging(BaseModel, nn.Module):
         self.num_labels = num_labels
         self.loss_f = loss_f
 
-        self.linear1 = torch.nn.Linear(output_layer_size, 1024)
-        self.linear2 = torch.nn.Linear(output_layer_size, 1024)
-        self.linear3 = torch.nn.Linear(output_layer_size, 1024)
-        self.linear4 = torch.nn.Linear(output_layer_size, 1024)
+        self.linear1 = torch.nn.Linear(output_layer_size, 256)
+        self.linear2 = torch.nn.Linear(output_layer_size, 256)
+        self.linear3 = torch.nn.Linear(output_layer_size, 256)
+        self.linear4 = torch.nn.Linear(output_layer_size, 256)
 
     def forward(self, input_ids, attention_mask, exact_pos_in_token, **kwargs): # other args ignore
         #print('input_ids', input_ids.size())

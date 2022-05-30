@@ -12,7 +12,6 @@ from  executor import Executor
 from tokenizer import Tokenizer
 from dataset import (
     DataSeqClassification,
-    ProcessedTestDataFrame,
     ProcessTokens,
     TaggingDataset,
     TrainHERBERTaDataFrame,
@@ -34,8 +33,8 @@ def test1():
     )
     utils.set_seed(config.seed)
 
-    tokenizer = Tokenizer('large-bert')  
-    dataframe = TrainHERBERTaDataFrame(config, debug_path="data/datasets/NEW_es_pl_ru_corpora_train2.tsv")
+    tokenizer = Tokenizer('m-bert')  
+    dataframe = TrainHERBERTaDataFrame(config, tokenizer=tokenizer, debug_path="data/datasets/NEW_fa_ru_corpora_train2.tsv")
     train = QADataset(
         df=dataframe.df,
         max_length=config.max_length, 
@@ -52,7 +51,8 @@ def test1():
         mode='val'
     )
 
-    for idx, _ in enumerate(dataframe.df):
+    print("Dataset size after processing: ", len(val) + len(train))
+    for idx, _ in enumerate(val):
         get = val[idx]
     #print(get)
 

@@ -33,6 +33,7 @@ class QAVectorLossFunction():
         exit()
         return l'''
 
+# not used
 class QALossFunction():
     def __init__(self, cross_entropy: CrossEntropyLoss, numb_of_indices=4):
         self.cross_entropy = cross_entropy
@@ -73,7 +74,7 @@ class QALossFunction():
         #real_target = torch.tensor(real_target, dtype=torch.double)
 
         torch.set_printoptions(threshold=10_000)
-        #print(real_target)
+        print(real_target)
         exit()
 
         loss_sum = torch.zeros(1)
