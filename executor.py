@@ -303,11 +303,7 @@ class Executor():
             lab = id_to_label[pr]
             relation.append(label_to_shortcut[lab])
 
-        print(label_to_shortcut)
-        print(id_to_label)
-        print(preds)
-        print(relation)
-        return torch.tensor(relation)
+        return relation
 
     def evaluate_m1_m2(dataloader, model_1, model_2, config, batch_processing, label_to_shortcut, id_to_label):
         if (config.load_models):
