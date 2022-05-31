@@ -71,9 +71,9 @@ class SpecialTokens():
                 
         #print(type(model2_input_ids))
         #print(model2_input_ids)
-        batch['model2_update_input_ids'] = torch.stack(model2_input_ids)
-        batch['model2_update_attention_mask'] = torch.stack(model2_attention_mask)
-        batch['model2_update_labels'] = torch.stack(model2_labels)
+        batch['model2_update_input_ids'] = torch.stack(model2_input_ids).to(config.device)
+        batch['model2_update_attention_mask'] = torch.stack(model2_attention_mask).to(config.device)
+        batch['model2_update_labels'] = torch.stack(model2_labels).to(config.device)
 
         # looks good
         #print(batch)
