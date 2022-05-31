@@ -84,18 +84,19 @@ class EntityTagging(BaseModel, nn.Module):
         #print('end_positions', end_positions.size())
         #print('end_positions', end_positions)
         #exit()
-        _, o = self.model( # ignore loss [4, 256]
+        o_start, o_end = self.model( # ignore loss [4, 256]
             input_ids=input_ids, 
             attention_mask=attention_mask, 
             #start_positions=start_positions, 
             #end_positions=end_positions,
             return_dict=False
         )
-        o1 = self.linear1(o)
-        o2 = self.linear2(o)
-        o3 = self.linear3(o)
-        o4 = self.linear4(o)
-        output = torch.stack([o1, o2, o3, o4], dim=0) # <indices, batch, tokens number> [4, 4, 1024]
+        
+        os1 = self.linear1(o_start)
+        os2 = self.linear2(o_start)
+        oe1 = self.linear3(o_end)
+        oe2 = self.linear4(o_end)
+        output = torch.stack([os1, oe1, os2, oe2], dim=0) # <indices, batch, tokens number> [4, 3, 256]
         loss = self.loss_f(output, exact_pos_in_token)
         return loss, output
 
