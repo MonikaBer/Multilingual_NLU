@@ -195,7 +195,7 @@ class ProcessedTestDataFrame(TestDataFrame):
             test_df['label_shortcut'] = test_df.apply(lambda row: label_to_shortcut[row['label']], axis=1)
             test_df = self.convert_to_ner_data(test_df, self.tokenizer, self.config)
             test_df = self.remove_invalid_data(test_df)
-            yield test_df, l, label_to_id, id_to_label
+            yield test_df, l, label_to_id, id_to_label, label_to_shortcut
 
 
 

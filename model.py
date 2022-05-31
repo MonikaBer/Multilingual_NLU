@@ -31,8 +31,20 @@ class BaseModel(nn.Module):
             num_training_steps = num_steps * config.epochs
         )
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        del state['scheduler']
+        del state['optimizer']
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+
     def save_checkpoint(self, epoch, config):
-        torch.save(self.model.state_dict(), f'{config.model_path}_{self.__class__.__name__}_epoch_{epoch}.model')
+        torch.save(self.state_dict(), f'{config.model_path}_{self.__class__.__name__}_epoch_{epoch}.model')
+
+    def load(self, epoch, config):
+        self.load_state_dict(torch.load(f'{config.model_path}_{self.__class__.__name__}_epoch_{epoch}.model'))
 
     def forward(self, input_ids, attention_mask, labels, **kwargs):
         #print('input_ids', input_ids.size())
@@ -74,6 +86,11 @@ class EntityTagging(BaseModel, nn.Module):
         self.linear2 = torch.nn.Linear(output_layer_size, 256).to(config.device)
         self.linear3 = torch.nn.Linear(output_layer_size, 256).to(config.device)
         self.linear4 = torch.nn.Linear(output_layer_size, 256).to(config.device)
+
+    def __getstate__(self):
+        state = super().__getstate__()
+        del state['loss_f']
+        return state
 
     def default_forward(self, input_ids, attention_mask, exact_pos_in_token):
         #print('input_ids', input_ids.size())

@@ -62,6 +62,8 @@ def get_parser():
                         help = "option for development")
     parser.add_argument("--batch-fdr", type = int, default = 2,
                         help = "limit number of batches in each epoch (default: %(default)s)")
+    parser.add_argument("--load-models", default = False,
+                        help = "flag to load models if they exist. Pass epoch number from where the model should be loaded.")
     return parser
 
 def train_loop(config, my_data_frame, tokenizer, model):
@@ -168,6 +170,8 @@ def for_model_1(config):
         tokenizer=tokenizer
     )
 
+    return model
+
 def for_model_2(config):
     tokenizer = Tokenizer('m-bert')  
     my_data_frame = TrainHERBERTaDataFrame(config, tokenizer=tokenizer)
@@ -218,6 +222,42 @@ def for_model_2(config):
         model=model,
         batch_processing=batch_processing,
     )
+    return model, tokenizer, batch_processing
+
+def for_model_1_2(config):
+    if not (config.load_models):
+        model_1 = for_model_1(config)
+        model_2, tokenizer, batch_processing = for_model_2(config)
+    else:
+        tokenizer = Tokenizer('m-bert') 
+        my_data_frame = TrainHERBERTaDataFrame(config, tokenizer=tokenizer)
+        loss_f = QAVectorLossFunction(torch.nn.CrossEntropyLoss())
+        dataset_train = QADataset(
+            df=my_data_frame.df, 
+            max_length=config.max_length, 
+            tokenizer=tokenizer,
+            config=config,
+            mode='train'
+        )   
+        model_2 = EntityTagging(config, len(my_data_frame.label_to_id), dataset_train.get_ids_size(), loss_f=loss_f)
+        batch_processing = SpecialTokens(
+            my_data_frame.label_to_id.keys(), 
+            tokenizer=tokenizer,
+            model=model_2
+        )
+        model_1 = RelationClassifier(config, len(my_data_frame.label_to_id))
+        model_1.set_optimizer(config)
+
+    my_test_data_frame = ProcessedTestDataFrame(config, tokenizer=tokenizer)
+
+    Executor.test_m1_m2(
+        config=config,
+        tokenizer=tokenizer,
+        dataframe_test=my_test_data_frame,
+        model_1=model_1,
+        model_2=model_2,
+        batch_processing=batch_processing,
+    )
 
 def main():
     parser = get_parser()
@@ -240,13 +280,16 @@ def main():
         max_norm = args.max_norm,
         fast_dev_run = args.fast_dev_run,
         batch_fast_dev_run = args.batch_fdr,
+        load_models = args.load_models
     )
     utils.set_seed(config.seed)
 
     if args.task == "R":
         for_model_1(config)
-    else:
+    elif args.task == "E":
         for_model_2(config)
+    elif args.task == "RE" or args.task == "ER":
+        for_model_1_2(config)
 
     return 0
 

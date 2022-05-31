@@ -28,7 +28,8 @@ class Config:
         seed=None,
         max_norm=None,
         fast_dev_run=None,
-        batch_fast_dev_run=None
+        batch_fast_dev_run=None,
+        load_models = False,
     ):
         self.data_dir = data_dir
         self.model_path = model_path
@@ -45,6 +46,7 @@ class Config:
         self.max_norm = max_norm
         self.fast_dev_run = fast_dev_run
         self.batch_fast_dev_run = batch_fast_dev_run
+        self.load_models = load_models
 
         languages = str2list(langs)
         languages.sort()
