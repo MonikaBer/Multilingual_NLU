@@ -5,10 +5,10 @@ from transformers import BertTokenizerFast, BertForTokenClassification
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from torch.optim import SGD
-from metrics import f1_score_func, accuracy_per_class
+from metrics import f1_score_func, accuracy_per_class, accuracy_per_class_QA
 
 import dataloader
-from dataset import DataSeqClassification
+from dataset import DataSeqClassification, QADataset
 from loss import QALossFunction, QAVectorLossFunction
 from tokenizer import SpecialTokens
 
@@ -55,25 +55,25 @@ class Executor():
             val_loss, predictions, true_vals = Executor.evaluate_QA(dataloader_val, model, config, batch_processing)
             #print('predictions', predictions)
             #print('true_vals', true_vals)
-            val_f1 = f1_score_func(predictions, true_vals)
+            val_f1 = f1_score_func_QA(predictions, true_vals)
             tqdm.write(f'Validation loss: {val_loss}')
             tqdm.write(f'F1 Score (Weighted): {val_f1}')
 
-    def test_QA(config, tokenizer, dataframe_test, model):
+    def test_QA(config, tokenizer, dataframe_test, model, batch_processing):
         tqdm.write('--------------------------------------------------------------------------------------')
         tqdm.write('##### TESTING #####')
         tqdm.write('--------------------------------------------------------------------------------------')
         # model.load_state_dict(torch.load(f'{config.model_path}_epoch_1.model', map_location = torch.device(config.device)))
 
         for it in dataframe_test.iter_df(): # because it is a generator, tuple does not work here
-            df, lang, label_to_id = it[0], it[1], it[2]
+            df, lang, label_to_id, id_to_label = it[0], it[1], it[2], it[3]
             if (model.num_labels != len(label_to_id)):
                 raise Exception(f"Wrong size of labels. For test labels must" +
                     f"match the size of the model labels which it was trained.\n" +
                     f"Model labels {model.num_labels}\nUsed labels now: {len(label_to_id)}\n" +
                     f"Labels now: {label_to_id}")
 
-            dataset_test = DataSeqClassification(
+            dataset_test = QADataset(
                 df=df, 
                 max_length=config.max_length, 
                 tokenizer=tokenizer,
@@ -85,7 +85,7 @@ class Executor():
             tqdm.write(f'#### Test model for lang {lang} ####')
 
             _, predictions, true_vals = Executor.evaluate_QA(dataloader_test.dataloader, model, config, batch_processing)
-            accuracy_per_class(predictions, true_vals, label_to_id)
+            accuracy_per_class_QA(predictions, true_vals, id_to_label)
 
     def evaluate_QA(dataloader, model, config, batch_processing):
         model.eval()
@@ -106,14 +106,14 @@ class Executor():
                 
                 loss, logits = model(**batch)
 
-                #print(logits.size())
-                #print(batch['exact_pos_in_token'])
-                #exit()
-
                 loss_val_total += loss.item()
 
+                # to jest źle, trzeba zachować 4 wierzchołki
+                #logits = torch.flatten(logits, end_dim=1)
+                #target = torch.flatten(batch['exact_pos_in_token'])
+
                 logits = logits.detach().cpu().numpy()
-                label_ids = batch['exact_pos_in_token'].cpu().numpy()
+                label_ids = target.cpu().numpy()
                 predictions.append(logits)
                 true_vals.append(label_ids)
 

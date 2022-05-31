@@ -60,7 +60,7 @@ def get_parser():
                         help = "max norm of the gradients (default: %(default)s)")
     parser.add_argument("--fast-dev-run", action='store_true',
                         help = "option for development")
-    parser.add_argument("--batch-fdr", type = int, default = 5,
+    parser.add_argument("--batch-fdr", type = int, default = 2,
                         help = "limit number of batches in each epoch (default: %(default)s)")
     return parser
 
@@ -215,7 +215,8 @@ def for_model_2(config):
         config=config,
         tokenizer=tokenizer,
         dataframe_test=my_test_data_frame,
-        model=model
+        model=model,
+        batch_processing=batch_processing,
     )
 
 def main():

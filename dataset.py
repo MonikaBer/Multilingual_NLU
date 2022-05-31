@@ -95,6 +95,9 @@ class BaseDataFrame():
         new_df = pd.concat([train, val])
         return new_df
 
+    def remove_invalid_data(self, df):
+        return df[df.label_ner != 'None_wrong_record']
+
 class TrainingDataFrame(BaseDataFrame):
     def __init__(self):
         self.path = None
@@ -149,9 +152,6 @@ class TrainHERBERTaDataFrame(TrainingDataFrame):
             self.path = self.prepare_data(config)
         self.df, self.label_to_id, self.id_to_label = self._prepare_df(config, self.path, tokenizer=tokenizer)
 
-    def remove_invalid_data(self, df):
-        return df[df.label_ner != 'None_wrong_record']
-
     def __len__(self):
         return self.df.shape[0]
 
@@ -187,12 +187,15 @@ class ProcessedTestDataFrame(TestDataFrame):
             dfs.append(test_df)
 
         full_df = pd.concat(dfs, ignore_index=True)
-        label_to_id, _ = self._encode_labels(full_df) # from full dataframe to be unique
+        label_to_id, id_to_label = self._encode_labels(full_df) # from full dataframe to be unique
+        label_to_shortcut, _ = self._encode_shortcut_label(full_df)
 
         for test_df, l in zip(dfs, self.langs):
             test_df['label_id'] = test_df.apply(lambda row: label_to_id[row['label']], axis=1)
+            test_df['label_shortcut'] = test_df.apply(lambda row: label_to_shortcut[row['label']], axis=1)
             test_df = self.convert_to_ner_data(test_df, self.tokenizer, self.config)
-            yield test_df, l, label_to_id
+            test_df = self.remove_invalid_data(test_df)
+            yield test_df, l, label_to_id, id_to_label
 
 
 
@@ -446,7 +449,7 @@ class QADataset(TaggingDataset):
 
         if(-1 in end_positions or -1 in start_positions):
             raise Exception(f"Could not find start or end for row {idx}. Check data csv for errors.\n" +
-            f"start: {start_positions}\nend: {end_positions}\ntext: {self.txt[idx]}")
+            f"start: {start_positions}\nend: {end_positions}\ntext: {self.txt[idx]}\nLabel: {self.labels[idx]}")
 
         exact_pos_in_token = torch.tensor([
             start_positions[0],
