@@ -5,7 +5,12 @@ from transformers import BertTokenizerFast, BertForTokenClassification
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from torch.optim import SGD
-from metrics import f1_score_func, accuracy_per_class, accuracy_per_class_QA
+from metrics import (
+    f1_score_func, 
+    f1_score_func_QA,
+    accuracy_per_class, 
+    accuracy_per_class_QA,
+)
 
 import dataloader
 from dataset import DataSeqClassification, QADataset
@@ -108,18 +113,26 @@ class Executor():
 
                 loss_val_total += loss.item()
 
+                #print(logits.size())
+                #print(batch['exact_pos_in_token'].size())
+                #exit()
+
                 # to jest źle, trzeba zachować 4 wierzchołki
                 #logits = torch.flatten(logits, end_dim=1)
                 #target = torch.flatten(batch['exact_pos_in_token'])
 
                 logits = logits.detach().cpu().numpy()
-                label_ids = target.cpu().numpy()
+                label_ids = batch['exact_pos_in_token'].cpu().numpy()
                 predictions.append(logits)
                 true_vals.append(label_ids)
 
         loss_val_avg = loss_val_total / len(dataloader)
 
-        predictions = np.concatenate(predictions, axis = 0)
+        #print(np.shape(predictions))
+        #print(np.shape(true_vals))
+        #exit()
+
+        predictions = np.concatenate(predictions, axis = 1)
         true_vals = np.concatenate(true_vals, axis = 0)
 
         return loss_val_avg, predictions, true_vals
