@@ -10,9 +10,10 @@ from metrics import f1_score_func, accuracy_per_class
 import dataloader
 from dataset import DataSeqClassification
 from loss import QALossFunction, QAVectorLossFunction
+from tokenizer import SpecialTokens
 
 class Executor():
-    def train_loop_QA(config, model, dataloader_train, dataloader_val):
+    def train_loop_QA(config, model, dataloader_train, dataloader_val, batch_processing: SpecialTokens):
         for epoch in tqdm(range(1, config.epochs + 1)):
             model.train()
 
@@ -24,8 +25,14 @@ class Executor():
                 if (config.fast_dev_run and batch_idx >= config.batch_fast_dev_run):
                     break
                 model.zero_grad()
+                batch = batch_processing.update_batch(
+                    batch=batch, 
+                    labels_to_add=batch['text_relation_labels'],
+                    config=config,
+                )
 
                 loss, logits = model(**batch)
+
                 loss_train_total += loss.item()
                 loss.backward()
 
@@ -45,9 +52,9 @@ class Executor():
             tqdm.write(f'Training loss: {loss_train_avg}')
 
             # validation
-            val_loss, predictions, true_vals = Executor.evaluate_QA(dataloader_val, model, config)
-            print('predictions', predictions)
-            print('true_vals', true_vals)
+            val_loss, predictions, true_vals = Executor.evaluate_QA(dataloader_val, model, config, batch_processing)
+            #print('predictions', predictions)
+            #print('true_vals', true_vals)
             val_f1 = f1_score_func(predictions, true_vals)
             tqdm.write(f'Validation loss: {val_loss}')
             tqdm.write(f'F1 Score (Weighted): {val_f1}')
@@ -77,10 +84,10 @@ class Executor():
 
             tqdm.write(f'#### Test model for lang {lang} ####')
 
-            _, predictions, true_vals = Executor.evaluate(dataloader_test.dataloader, model, config)
+            _, predictions, true_vals = Executor.evaluate_QA(dataloader_test.dataloader, model, config, batch_processing)
             accuracy_per_class(predictions, true_vals, label_to_id)
 
-    def evaluate_QA(dataloader, model, config):
+    def evaluate_QA(dataloader, model, config, batch_processing):
         model.eval()
 
         loss_val_total = 0
@@ -90,8 +97,18 @@ class Executor():
             for batch_idx, batch in enumerate(dataloader):
                 if (config.fast_dev_run and batch_idx >= config.batch_fast_dev_run):
                     break
+
+                batch = batch_processing.update_batch(
+                    batch=batch, 
+                    labels_to_add=batch['text_relation_labels'],
+                    config=config,
+                )
                 
                 loss, logits = model(**batch)
+
+                #print(logits.size())
+                #print(batch['exact_pos_in_token'])
+                #exit()
 
                 loss_val_total += loss.item()
 
@@ -216,3 +233,64 @@ class Executor():
 
     
 
+    def test_m1_m2(dataloader, model_1, model_2, config):
+        tqdm.write('--------------------------------------------------------------------------------------')
+        tqdm.write('##### TESTING #####')
+        tqdm.write('--------------------------------------------------------------------------------------')
+        # model.load_state_dict(torch.load(f'{config.model_path}_epoch_1.model', map_location = torch.device(config.device)))
+
+        for it in dataframe_test.iter_df(): # because it is a generator, tuple does not work here
+            df, lang, label_to_id = it[0], it[1], it[2]
+            if (model.num_labels != len(label_to_id)):
+                raise Exception(f"Wrong size of labels. For test labels must" +
+                    f"match the size of the model labels which it was trained.\n" +
+                    f"Model labels {model.num_labels}\nUsed labels now: {len(label_to_id)}\n" +
+                    f"Labels now: {label_to_id}")
+
+            dataset_test = DataSeqClassification(
+                df=df, 
+                max_length=config.max_length, 
+                tokenizer=tokenizer,
+                config=config,
+                mode='test'
+            )
+            dataloader_test = dataloader.SequenceClassificationDataLoader(config, tokenizer, dataset_test, 'test')
+
+            tqdm.write(f'#### Test model for lang {lang} ####')
+
+            _, predictions, true_vals = Executor.evaluate_m1_m2(dataloader_test.dataloader, model, config)
+            accuracy_per_class(predictions, true_vals, label_to_id)
+
+    def evaluate_m1_m2(dataloader, model, config):
+        model.eval()
+
+        loss_val_total = 0
+        predictions, true_vals = [], []
+
+        with torch.no_grad():
+            for batch_idx, batch in enumerate(dataloader):
+                if (config.fast_dev_run and batch_idx >= config.batch_fast_dev_run):
+                    break
+                
+                loss, logits = model(**batch)
+
+                loss_val_total += loss.item()
+
+                logits = logits.detach().cpu().numpy()
+                label_ids = batch['labels'].cpu().numpy()
+                predictions.append(logits)
+                true_vals.append(label_ids)
+                
+                #print('logits', logits)
+                #print('true_vals', true_vals)
+                #print(inputs['input_ids'])
+                #print(inputs['attention_mask'])
+                #print(true_vals)
+                #exit(0)
+
+        loss_val_avg = loss_val_total / len(dataloader)
+
+        predictions = np.concatenate(predictions, axis = 0)
+        true_vals = np.concatenate(true_vals, axis = 0)
+
+        return loss_val_avg, predictions, true_vals

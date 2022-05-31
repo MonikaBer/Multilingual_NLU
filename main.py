@@ -19,6 +19,7 @@ from dataset import (
 )
 
 from loss import QAVectorLossFunction
+from tokenizer import SpecialTokens
 
 
 def get_parser():
@@ -59,7 +60,7 @@ def get_parser():
                         help = "max norm of the gradients (default: %(default)s)")
     parser.add_argument("--fast-dev-run", action='store_true',
                         help = "option for development")
-    parser.add_argument("--batch-fdr", type = int, default = 2,
+    parser.add_argument("--batch-fdr", type = int, default = 5,
                         help = "limit number of batches in each epoch (default: %(default)s)")
     return parser
 
@@ -136,6 +137,8 @@ def for_model_1(config):
 
     my_data_frame = TrainHERBERTaDataFrame(config, tokenizer)
 
+    print(f'#### Dataframe size: {len(my_data_frame)}')
+
     ### test
     """datase = TaggingDataset(
         df=my_data_frame.df, 
@@ -192,12 +195,19 @@ def for_model_2(config):
     dataloader_train = dataloader.SequenceClassificationDataLoader(config, tokenizer, dataset_train, 'train')
     
     model.set_scheduler(config, num_steps=len(dataloader_train.dataloader))
+    batch_processing = SpecialTokens(
+        my_data_frame.label_to_id.keys(), 
+        tokenizer=tokenizer,
+        model=model
+    )
 
     Executor.train_loop_QA(
         config=config, 
         model=model, 
         dataloader_train=dataloader_train.dataloader, 
-        dataloader_val=dataloader_val.dataloader)
+        dataloader_val=dataloader_val.dataloader,
+        batch_processing=batch_processing,
+    )
 
     my_test_data_frame = ProcessedTestDataFrame(config, tokenizer=tokenizer)
 

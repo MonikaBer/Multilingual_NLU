@@ -20,7 +20,7 @@ from dataset import (
 from loss import QAVectorLossFunction
 
 
-def test1():
+def test2():
     config = Config(
         data_dir = "data/datasets/",
         langs = '(ru,pl)',
@@ -32,28 +32,23 @@ def test1():
     )
     utils.set_seed(config.seed)
 
-    tokenizer = Tokenizer('m-bert')  
+    tokenizer = Tokenizer('m-bert')
+
     dataframe = TrainHERBERTaDataFrame(config, tokenizer=tokenizer, debug_path="data/datasets/NEW_fa_ru_corpora_train2.tsv")
-    train = QADataset(
-        df=dataframe.df,
-        max_length=config.max_length, 
-        tokenizer=tokenizer,
-        config=config,
-        mode='train'
-    )
+    label_keys = list(dataframe.label_to_id.keys())
+    for idx, l in enumerate(label_keys):
+        label_keys[idx] = '[' + l + ']'
 
-    val = QADataset(
-        df=dataframe.df,
-        max_length=config.max_length, 
-        tokenizer=tokenizer,
-        config=config,
-        mode='val'
-    )
+    print(label_keys)
 
-    print("Dataset size after processing: ", len(val) + len(train))
-    for idx, _ in enumerate(val):
-        get = val[idx]
-    #print(get)
+    #tokenizer.instance.add_tokens(label_keys)
+    #label_str = ' '.join(label_keys)
 
-if __name__ == "__main__":
-    test1()
+    tokenizer.instance.add_special_tokens({"additional_special_tokens": label_keys})
+    print(tokenizer.instance.SPECIAL_TOKENS_ATTRIBUTES)
+    print(tokenizer.instance.tokenize('[SEP]'))
+    #tokenizer.instance.ge
+    print(tokenizer('[SEP]', max_length=256, padding='max_length', return_tensors = 'pt'))
+    print('[unused0]' in tokenizer.instance.vocab)
+
+

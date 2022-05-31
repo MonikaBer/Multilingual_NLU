@@ -209,3 +209,7 @@ def find_entity_token_positions(df,tokenizer):
     #return positions of first token in every entity (out of 4) for each sentence
     #dimensions [len(df.text.values) x 4]
     return maskedFourEntitiesArray
+
+
+def split_text(txt):
+    return txt.split()

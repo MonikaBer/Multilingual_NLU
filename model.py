@@ -75,7 +75,7 @@ class EntityTagging(BaseModel, nn.Module):
         self.linear3 = torch.nn.Linear(output_layer_size, 256).to(config.device)
         self.linear4 = torch.nn.Linear(output_layer_size, 256).to(config.device)
 
-    def forward(self, input_ids, attention_mask, exact_pos_in_token, **kwargs): # other args ignore
+    def default_forward(self, input_ids, attention_mask, exact_pos_in_token):
         #print('input_ids', input_ids.size())
         #print('input_ids', input_ids)
         #print('attention_mask', attention_mask.size())
@@ -98,3 +98,10 @@ class EntityTagging(BaseModel, nn.Module):
         output = torch.stack([o1, o2, o3, o4], dim=0) # <indices, batch, tokens number> [4, 4, 1024]
         loss = self.loss_f(output, exact_pos_in_token)
         return loss, output
+
+    def forward(self, model2_update_input_ids, model2_update_attention_mask, model2_update_labels, **kwargs): # other args ignore
+        return self.default_forward(
+            input_ids = model2_update_input_ids, 
+            attention_mask = model2_update_attention_mask, 
+            exact_pos_in_token = model2_update_labels
+        )

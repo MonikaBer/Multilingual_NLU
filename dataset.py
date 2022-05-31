@@ -51,6 +51,20 @@ class BaseDataFrame():
 
         return label_to_id, id_to_label
 
+    def _encode_shortcut_label(self, df):
+        possible_labels = df.label.unique()
+        label_to_shortcut = {}
+        shortcut_to_label = {}
+
+        ascii_char = ord('0')
+
+        for index, possible_label in enumerate(sorted(possible_labels)):
+            label_to_shortcut[possible_label] = chr(ascii_char)
+            shortcut_to_label[chr(ascii_char)] = possible_label
+            ascii_char += 1
+        
+        return label_to_shortcut, shortcut_to_label
+
     def convert_to_ner_data(self, df: pd.DataFrame, tokenizer, config):
         texts = df.text.values.tolist()
         process = EntityFinding()
@@ -65,7 +79,7 @@ class BaseDataFrame():
             )
 
         def pr_text(row):
-            return ProcessTokens.new_text(row.text)
+            return EntityFinding.new_text(row.text)
 
         df['label_ner'] = df.apply(pr_labels, axis=1)
         df['text_ner'] = df.apply(pr_text, axis=1)
@@ -138,6 +152,9 @@ class TrainHERBERTaDataFrame(TrainingDataFrame):
     def remove_invalid_data(self, df):
         return df[df.label_ner != 'None_wrong_record']
 
+    def __len__(self):
+        return self.df.shape[0]
+
     def _prepare_df(self, config, dataset_path, tokenizer):
         print(f"Loading {dataset_path}")
         df = self.load_data(dataset_path)
@@ -145,6 +162,9 @@ class TrainHERBERTaDataFrame(TrainingDataFrame):
 
         label_to_id, id_to_label = self._encode_labels(new_df)
         new_df['label_id'] = new_df.apply(lambda row: label_to_id[row['label']], axis=1)
+
+        label_to_shortcut, _ = self._encode_shortcut_label(new_df)
+        new_df['label_shortcut'] = new_df.apply(lambda row: label_to_shortcut[row['label']], axis=1)
 
         # split dataset
         new_df = self.split_data(new_df, config)
@@ -268,6 +288,8 @@ class TaggingDataset(Dataset):
         self.txt = df_in_use.text_ner.values.tolist()
         self.device = config.device
         self.labels = df_in_use.label_ner.values
+        self.label_id = torch.tensor(df_in_use.label_id.values.tolist())
+        self.text_relation_labels = df_in_use.label_shortcut.values.tolist()
 
         self.encoded_data = tokenizer(
             self.txt,
@@ -291,6 +313,9 @@ class TaggingDataset(Dataset):
         self.tokenizer = tokenizer
 
     def convert_ner_label_to_indices(self, label: list):
+        """
+            Returns list of 4 indices.
+        """
         e1_end = None
         e2_end = None
         for idx, l in enumerate(label):
@@ -367,9 +392,6 @@ class QADataset(TaggingDataset):
         #print('bbb', start_idxs, end_idxs)    
         return start_idxs, end_idxs
         
-    def get_label_QA(self, idx):
-        return self.convert_QA_label_to_indices(self.labels[idx])
-
     def get_label_classification(self, idx, ids_size):
         # returns tensor like [0, 0, 1, 1, 1, 0, 0, 2, 2, 2, 0, 0, 0]
         lab = self.labels[idx]
@@ -419,34 +441,56 @@ class QADataset(TaggingDataset):
 
         return new_indexes_start, new_indexes_end
 
-    def __getitem__(self, idx):
-        '''
-            Returns labels in form of 4 indices <e1_start, e1_end, e2_start, e2_end>
-        '''
-        attention_mask = self.get_attention_mask(idx).to(self.device)
-        ids = self.get_input_ids(idx).to(self.device)
+    def convert_ner_to_labels_indices(self, idx):
+        start_positions, end_positions = self.convert_QA_label_to_indices(self.labels[idx])
 
-        vector_label = torch.tensor(self.get_label_classification(idx, len(ids))).to(self.device)
-        start_positions, end_positions = self.get_label_QA(idx)
-        #print(self.tokenizer.instance.convert_ids_to_tokens(self.input_ids[idx]))
-        #start_positions, end_positions = self.convert_to_tokenized_word(start_positions, end_positions, idx)
+        if(-1 in end_positions or -1 in start_positions):
+            raise Exception(f"Could not find start or end for row {idx}. Check data csv for errors.\n" +
+            f"start: {start_positions}\nend: {end_positions}\ntext: {self.txt[idx]}")
+
         exact_pos_in_token = torch.tensor([
             start_positions[0],
             end_positions[0],
             start_positions[1],
             end_positions[1]
         ]).to(self.device)
-        start_positions = torch.tensor(start_positions, dtype=torch.long).to(self.device)
-        end_positions = torch.tensor(end_positions, dtype=torch.long).to(self.device)
+        return exact_pos_in_token
+
+    def __getitem__(self, idx):
+        '''
+            Returns labels in form of 4 indices <e1_start, e1_end, e2_start, e2_end>
+        '''
+        attention_mask = self.get_attention_mask(idx).to(self.device)
+        ids = self.get_input_ids(idx).to(self.device)
+        processed_text = self.txt[idx]
+
+        exact_pos_in_token = self.convert_ner_to_labels_indices(idx)
+
+        #vector_label = torch.tensor(self.get_label_classification(idx, len(ids))).to(self.device)
+        #start_positions, end_positions = self.convert_QA_label_to_indices(self.labels[idx])
+        ##print(self.tokenizer.instance.convert_ids_to_tokens(self.input_ids[idx]))
+        ##start_positions, end_positions = self.convert_to_tokenized_word(start_positions, end_positions, idx)
+        #exact_pos_in_token = torch.tensor([
+        #    start_positions[0],
+        #    end_positions[0],
+        #    start_positions[1],
+        #    end_positions[1]
+        #]).to(self.device)
+        #start_positions = torch.tensor(start_positions, dtype=torch.long).to(self.device)
+        #end_positions = torch.tensor(end_positions, dtype=torch.long).to(self.device)
+
+
         
-        default_labels = self.get_label(idx).to(self.device)
+        #default_labels = self.get_label(idx).to(self.device)
+
+        
 
         #start_positions = start_positions[0]
         #end_positions = end_positions[0]
 
-        if(-1 in end_positions or -1 in start_positions):
-            raise Exception(f"Could not find start or end for row {idx}. Check data csv for errors.\n" +
-            f"start: {start_positions}\nend: {end_positions}\ntext: {self.txt[idx]}")
+        #if(-1 in end_positions or -1 in start_positions):
+        #    raise Exception(f"Could not find start or end for row {idx}. Check data csv for errors.\n" +
+        #    f"start: {start_positions}\nend: {end_positions}\ntext: {self.txt[idx]}")
 
         #print(vector_label.size())
         #print(exact_pos_in_token.size())
@@ -455,11 +499,14 @@ class QADataset(TaggingDataset):
         return {
             'input_ids': ids,
             'attention_mask': attention_mask,
-            'start_positions': start_positions,
-            'end_positions': end_positions,
+            #'start_positions': start_positions,
+            #'end_positions': end_positions,
             'exact_pos_in_token': exact_pos_in_token,
-            'vector_label': vector_label,
-            'labels': default_labels,
+            #'vector_label': vector_label,
+            #'labels': default_labels,
+            'labels': self.label_id[idx].to(self.device),
+            'text_relation_labels': self.text_relation_labels[idx],
+            'text': processed_text
             }
 
 
@@ -537,6 +584,7 @@ class EntityContainer():
 
         return target
 
+# should not be used, old impl
 class ProcessTokens():
     def __init__(self, numb_entities=2):
         self.regex = re.compile("<e[0-9]+>|<\/e[0-9]+>")
