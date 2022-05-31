@@ -166,7 +166,7 @@ def for_model_1(config):
     )
 
 def for_model_2(config):
-    tokenizer = Tokenizer('large-bert')  
+    tokenizer = Tokenizer('m-bert')  
     my_data_frame = TrainHERBERTaDataFrame(config, tokenizer=tokenizer)
     
     dataset_val = QADataset(

@@ -64,8 +64,9 @@ class EntityTagging(BaseModel, nn.Module):
     def __init__(self, config, num_labels, output_layer_size, loss_f):
         super().__init__()
         # 'bert-large-uncased-whole-word-masking-finetuned-squad'
+        # 'bert-base-multilingual-cased'
         # 'bert-base-cased'
-        self.model = BertForQuestionAnswering.from_pretrained('bert-large-uncased-whole-word-masking-finetuned-squad').to(config.device)
+        self.model = BertForQuestionAnswering.from_pretrained('bert-base-multilingual-cased').to(config.device)
         self.num_labels = num_labels
         self.loss_f = loss_f
 
