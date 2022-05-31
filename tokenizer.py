@@ -25,7 +25,7 @@ class Tokenizer():
 
 
 class SpecialTokens():
-    def __init__(self, label_keys: list[str], tokenizer, model):
+    def __init__(self, label_keys: list, tokenizer, model): # label_keys list[str]
         new_label_keys = []
         label_to_id = {}
         for l in label_keys:
