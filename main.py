@@ -34,7 +34,7 @@ def get_parser():
                         help = "path to directory with datasets (default: %(default)s)")
     parser.add_argument("--langs", type = str, default = "(ru,fa)",
                         help = "tuple of languages (default: %(default)s)")
-    parser.add_argument("--model-path", type = str, default = "models/model1",
+    parser.add_argument("--model-path", type = str, default = "models/",
                         help = "model path for storage (default: %(default)s)")
     # device dependencies
     parser.add_argument("--device", type = str, default = "cuda",

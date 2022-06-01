@@ -8,6 +8,8 @@ from metrics import f1_score_func
 from utils import *
 from transformers import BertForQuestionAnswering
 
+from pathlib import Path
+
 
 class BaseModel(nn.Module):
     def __init__(self):
@@ -41,10 +43,12 @@ class BaseModel(nn.Module):
         self.__dict__.update(state)
 
     def save_checkpoint(self, epoch, config):
-        torch.save(self.state_dict(), f'{config.model_path}_{self.__class__.__name__}_epoch_{epoch}.model')
+        Path(config.model_path).mkdir(parents=True, exist_ok=True)
+        torch.save(self.state_dict(), f'{config.model_path}{self.__class__.__name__}_epoch_{epoch}.model')
 
     def load(self, epoch, config):
-        self.load_state_dict(torch.load(f'{config.model_path}_{self.__class__.__name__}_epoch_{epoch}.model'))
+        Path(config.model_path).mkdir(parents=True, exist_ok=True)
+        self.load_state_dict(torch.load(f'{config.model_path}{self.__class__.__name__}_epoch_{epoch}.model'))
 
     def forward(self, input_ids, attention_mask, labels, **kwargs):
         #print('input_ids', input_ids.size())
