@@ -140,7 +140,7 @@ class EntityTagging(BaseModel, nn.Module):
         oe1 = self.linear3_e1_e(self.relu(oe1))
         oe2 = self.linear3_e2_e(self.relu(oe2))
 
-        output = torch.stack([os1, oe1, os2, oe2], dim=0) # <indices, batch, tokens number> [4, 3, 256]
+        output = torch.stack([o_start, o_end, o_start, o_end], dim=0) # <indices, batch, tokens number> [4, 3, 256]
         loss = self.loss_f(output, exact_pos_in_token)
         return loss, output
 
