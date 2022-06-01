@@ -66,8 +66,8 @@ def get_parser():
                         help = "limit number of batches in each epoch (default: %(default)s)")
     parser.add_argument("--load-models", default = False,
                         help = "flag to load models if they exist. Pass epoch number from where the model should be loaded.")
-    parser.add_argument("--debug-weight-change", action='store_true',
-                        help = "flag to check for weight change. This is a debug option. Raise exception if the weight does not changed after one training iteration.")
+    parser.add_argument("--relation-threshold", default = 32,
+                        help = "If natural value is passed here, relations below the threshold are duplicated many times to reach the threshold. ")
     return parser
 
 def train_loop(config, my_data_frame, tokenizer, model):
@@ -86,34 +86,32 @@ def train_loop(config, my_data_frame, tokenizer, model):
         print('-------------------------------------------------------------')
         if(idx == 6):
             break
-        
+
     exit(0)'''
     #
     # end test
     #
 
     dataset_val = DataSeqClassification(
-        df=my_data_frame.df, 
-        max_length=config.max_length, 
+        df=my_data_frame.df,
+        max_length=config.max_length,
         tokenizer=tokenizer,
         config=config,
-        mode='val',
-        id_to_label=my_data_frame.id_to_label
-    )   
+        mode='val'
+    )
     dataset_train = DataSeqClassification(
-        df=my_data_frame.df, 
-        max_length=config.max_length, 
+        df=my_data_frame.df,
+        max_length=config.max_length,
         tokenizer=tokenizer,
         config=config,
-        mode='train',
-        id_to_label=my_data_frame.id_to_label
-    )   
+        mode='train'
+    )
 
     dataloader_val = dataloader.SequenceClassificationDataLoader(config, tokenizer, dataset_val, 'val')
     dataloader_train = dataloader.SequenceClassificationDataLoader(config, tokenizer, dataset_train, 'train')
-    
+
     model.set_scheduler(config, num_steps=len(dataloader_train.dataloader))
-    
+
     #new_label = utils.align_label(
     #    texts=data.df.text.values.tolist(),
     #    tokenizer=tokenizer
@@ -124,9 +122,9 @@ def train_loop(config, my_data_frame, tokenizer, model):
     #exit()
 
     Executor.train_loop_relation(
-        config=config, 
-        model=model, 
-        dataloader_train=dataloader_train.dataloader, 
+        config=config,
+        model=model,
+        dataloader_train=dataloader_train.dataloader,
         dataloader_val=dataloader_val.dataloader
     )
 
@@ -141,7 +139,7 @@ def test_loop(config, tokenizer, model):
     )
 
 def for_model_1(config):
-    tokenizer = Tokenizer('m-bert')  
+    tokenizer = Tokenizer('m-bert')
 
     my_data_frame = TrainHERBERTaDataFrame(config, tokenizer)
 
@@ -149,8 +147,8 @@ def for_model_1(config):
 
     ### test
     """datase = TaggingDataset(
-        df=my_data_frame.df, 
-        max_length=config.max_length, 
+        df=my_data_frame.df,
+        max_length=config.max_length,
         tokenizer=tokenizer,
         config=config,
         mode='val'
@@ -162,7 +160,7 @@ def for_model_1(config):
 
     model = RelationClassifier(config, len(my_data_frame.label_to_id))
     model.set_optimizer(config)
-    
+
     train_loop(
         config=config,
         model=model,
@@ -179,42 +177,42 @@ def for_model_1(config):
     return model
 
 def for_model_2(config):
-    tokenizer = Tokenizer('m-bert')  
+    tokenizer = Tokenizer('m-bert')
     my_data_frame = TrainHERBERTaDataFrame(config, tokenizer=tokenizer)
-    
+
     dataset_val = QADataset(
-        df=my_data_frame.df, 
-        max_length=config.max_length, 
+        df=my_data_frame.df,
+        max_length=config.max_length,
         tokenizer=tokenizer,
         config=config,
         mode='val'
-    )   
+    )
     dataset_train = QADataset(
-        df=my_data_frame.df, 
-        max_length=config.max_length, 
+        df=my_data_frame.df,
+        max_length=config.max_length,
         tokenizer=tokenizer,
         config=config,
         mode='train'
-    )   
-    
+    )
+
     loss_f = QAVectorLossFunction(torch.nn.CrossEntropyLoss())
     model = EntityTagging(config, len(my_data_frame.label_to_id), dataset_train.get_ids_size(), loss_f=loss_f)
     model.set_optimizer(config)
 
     dataloader_val = dataloader.SequenceClassificationDataLoader(config, tokenizer, dataset_val, 'val')
     dataloader_train = dataloader.SequenceClassificationDataLoader(config, tokenizer, dataset_train, 'train')
-    
+
     model.set_scheduler(config, num_steps=len(dataloader_train.dataloader))
     batch_processing = SpecialTokens(
-        my_data_frame.label_to_id.keys(), 
+        my_data_frame.label_to_id.keys(),
         tokenizer=tokenizer,
         model=model
     )
 
     Executor.train_loop_QA(
-        config=config, 
-        model=model, 
-        dataloader_train=dataloader_train.dataloader, 
+        config=config,
+        model=model,
+        dataloader_train=dataloader_train.dataloader,
         dataloader_val=dataloader_val.dataloader,
         batch_processing=batch_processing,
     )
@@ -235,19 +233,19 @@ def for_model_1_2(config):
         model_1 = for_model_1(config)
         model_2, tokenizer, batch_processing = for_model_2(config)
     else:
-        tokenizer = Tokenizer('m-bert') 
+        tokenizer = Tokenizer('m-bert')
         my_data_frame = TrainHERBERTaDataFrame(config, tokenizer=tokenizer)
         loss_f = QAVectorLossFunction(torch.nn.CrossEntropyLoss())
         dataset_train = QADataset(
-            df=my_data_frame.df, 
-            max_length=config.max_length, 
+            df=my_data_frame.df,
+            max_length=config.max_length,
             tokenizer=tokenizer,
             config=config,
             mode='train'
-        )   
+        )
         model_2 = EntityTagging(config, len(my_data_frame.label_to_id), dataset_train.get_ids_size(), loss_f=loss_f)
         batch_processing = SpecialTokens(
-            my_data_frame.label_to_id.keys(), 
+            my_data_frame.label_to_id.keys(),
             tokenizer=tokenizer,
             model=model_2
         )
@@ -286,8 +284,7 @@ def main():
         max_norm = args.max_norm,
         fast_dev_run = args.fast_dev_run,
         batch_fast_dev_run = args.batch_fdr,
-        load_models = args.load_models,
-        debug_check_for_weight_change=args.debug_weight_change
+        load_models = args.load_models
     )
     utils.set_seed(config.seed)
 

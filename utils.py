@@ -47,7 +47,7 @@ def relations_to_multiply(trainRelationDict,
         return keysToMultiply
 
 def append_rare_relations_to_df(train, keysToMultiply, relationThreshold):
-    if keysToMultiply:
+    if relationThreshold and keysToMultiply:
         toMultiply_df = pd.DataFrame(columns = list(train.columns.values))
         for rel in keysToMultiply:
             rareRelationIndices = []
