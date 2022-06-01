@@ -30,7 +30,7 @@ class Config:
         fast_dev_run=None,
         batch_fast_dev_run=None,
         load_models = False,
-        debug_check_for_weight_change=False
+        debug_check_for_weight_change=False,
         relation_threshold = 32
     ):
         self.data_dir = data_dir
