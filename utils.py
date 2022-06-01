@@ -62,11 +62,15 @@ def relations_to_multiply(trainRelationDict, testRelationDict,
         return keysToMultiply
 
 def multiply_rare_relations(train, keysToMutiply, trainRelationDict):
-    recordsToMultiply = {}
+    toMultiply_df = pandas.DataFrame(list(train.columns.values))
     for n,i in enumerate(train.text):
+        count = 0
         if train.label[n] in keysToMultiply:
-            recordsToMultiply.append(n)
-    for n,i in enumerate(train.text):
+            count += 1
+            for j in range(16 * count):
+                toMultiply_df.loc[j]
+
+
 
 
 

@@ -62,7 +62,7 @@ class BaseDataFrame():
             label_to_shortcut[possible_label] = chr(ascii_char)
             shortcut_to_label[chr(ascii_char)] = possible_label
             ascii_char += 1
-        
+
         return label_to_shortcut, shortcut_to_label
 
     def convert_to_ner_data(self, df: pd.DataFrame, tokenizer, config):
@@ -71,8 +71,8 @@ class BaseDataFrame():
 
         def pr_labels(row):
             return process.new_target(
-                text=row.text, 
-                entity_1=row.entity_1, 
+                text=row.text,
+                entity_1=row.entity_1,
                 entity_2=row.entity_2,
                 tokenizer=tokenizer,
                 config=config
@@ -97,6 +97,45 @@ class BaseDataFrame():
 
     def remove_invalid_data(self, df):
         return df[df.label_ner != 'None_wrong_record']
+
+    def remove_rare_relations(trainRelationDict, testRelationDict,
+            trainUniqueRelationList, testUniqueRelationList):
+        keysToRemove = []
+        for k in trainRelationDict.keys():
+            if (trainRelationDict[k] < 16):
+                keysToRemove.append(k)
+        if keysToRemove:
+            for k in keysToRemove:
+                if k in trainUniqueRelationList:
+                    trainUniqueRelationList.remove(k)
+                if k in testUniqueRelationList:
+                    testUniqueRelationList.remove(k)
+                del trainRelationDict[k]
+                del testRelationDict[k]
+
+    def multiply_rare_labels(self, train, test, config):
+        trainUniqueRelationList = train.label.unique().tolist()
+        testUniqueRelationList = test.label.unique().tolist()
+        trainUniqueRelationList.sort()
+        testUniqueRelationList.sort()
+        if trainUniqueRelationList != testUniqueRelationList:
+            commonRelation = []
+            for i in trainUniqueRelationList:
+                for j in testUniqueRelationList:
+                    if i == j:
+                        commonRelation.append(i)
+            utils.remove_uncommon_values_in_two_lists(trainUniqueRelationList, commonRelation)
+            utils.remove_uncommon_values_in_two_lists(testUniqueRelationList, commonRelation)
+        trainRelationDict = utils.count_relations(train, trainUniqueRelationList)
+        testRelationDict = utils.count_relations(test, testUniqueRelationList)
+        relationsToMultiply = utils.relations_to_multiply(trainRelationDict, testRelationDict,
+                trainUniqueRelationList, testUniqueRelationList)
+        toMultiply_df = pandas.DataFrame(list(train.columns.values))
+
+
+
+
+
 
 class TrainingDataFrame(BaseDataFrame):
     def __init__(self):
@@ -219,7 +258,7 @@ class DataSeqClassification(Dataset):
             raise Exception("Unknown dataset type")
 
         self.device = config.device
-        
+
         self.df = df_in_use
         self.tokenizer = tokenizer
         self.max_length = max_length
@@ -408,9 +447,9 @@ class QADataset(TaggingDataset):
         idx = 1
         if(end_idxs[idx] == -1):
             end_idxs[idx] = start_idxs[idx]
-        #print('bbb', start_idxs, end_idxs)    
+        #print('bbb', start_idxs, end_idxs)
         return start_idxs, end_idxs
-        
+
     def get_label_classification(self, idx, ids_size):
         # returns tensor like [0, 0, 1, 1, 1, 0, 0, 2, 2, 2, 0, 0, 0]
         lab = self.labels[idx]
@@ -504,10 +543,10 @@ class QADataset(TaggingDataset):
         #end_positions = torch.tensor(end_positions, dtype=torch.long).to(self.device)
 
 
-        
+
         #default_labels = self.get_label(idx).to(self.device)
 
-        
+
 
         #start_positions = start_positions[0]
         #end_positions = end_positions[0]
@@ -734,16 +773,16 @@ class EntityFinding():
 
     def new_text(text: str):
         new_text = re.sub('<e[0-9]+>|<\/e[0-9]+>', ' ', text) # add default space, two spaces do nothing wrong
-        return new_text    
+        return new_text
 
     def new_target(self, text: str, entity_1, entity_2, tokenizer, config):
         '''
             Find entities in text by text comparsion with entity_1 and entity_2.
-            Convert to format like 
+            Convert to format like
             ['B-ent1', 'I-ent1', '0', '0', '0', '0', '0', '0', 'B-ent2', '0', '0', '0', '0', '0', '0', '0']
             but this format is relative to the tokenized word
         '''
-        if((isinstance(entity_1, float) and math.isnan(entity_1)) or 
+        if((isinstance(entity_1, float) and math.isnan(entity_1)) or
             (isinstance(entity_2, float) and math.isnan(entity_2))):
             return self.none_value
         text = EntityFinding.new_text(text)
@@ -777,7 +816,7 @@ class EntityFinding():
         tokenized_entity_1 = list(filter(lambda a: a != '[PAD]' and a != '[CLS]', tokenized_entity_1))
         if tokenized_entity_1[-1] == '[SEP]':
             tokenized_entity_1.pop()
-        
+
         tokenized_entity_2 = tokenizer.instance.convert_ids_to_tokens(
             tokenizer(
                 entity_2,
@@ -814,7 +853,7 @@ class EntityFinding():
             if(entity_found[0] and entity_found[1]):
                 break
 
-        
+
         if not (entity_found[0] and entity_found[1]):
             #print(entity_found)
             return self.none_value
@@ -828,7 +867,7 @@ class EntityFinding():
         #print(text)
         #print(target)
         return target
-        
+
     def _convertToTarget(self, e1_start, e1_end, e2_start, e2_end, numb_tokens):
         '''
             Converts from data EntityContainer (indexes of the tags <eX>) to form
@@ -871,8 +910,3 @@ class EntityFinding():
             return self.none_value
 
         return target
-
-        
-
-
-    
