@@ -63,7 +63,7 @@ class Executor():
                         raise Exception("Model is not learning!!!. Somewhere grad was lost.")
                     first_check = False
 
-                progress_bar.set_postfix({'training_loss': '{:.3f}'.format(loss.item() / len(batch))})
+                progress_bar.set_postfix({'training_loss': '{:.3f}'.format(loss.item())})
 
 
             model.save_checkpoint(epoch, config)
@@ -195,7 +195,7 @@ class Executor():
                         raise Exception("Model is not learning!!!. Somewhere grad was lost.")
                     first_check = False
 
-                progress_bar.set_postfix({'training_loss': '{:.3f}'.format(loss.item() / len(batch))})
+                progress_bar.set_postfix({'training_loss': '{:.3f}'.format(loss.item())})
 
 
             model.save_checkpoint(epoch, config)

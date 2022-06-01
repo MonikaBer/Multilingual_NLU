@@ -17,8 +17,6 @@ class QAVectorLossFunction():
         loss_sum = torch.zeros(1, requires_grad=True).to(input.device)
         target = torch.permute(target, (1, 0)) # flip target dims <batch, indices> -> <indices, batch>
         for inp, targ in zip(input, target): # iterate over indices
-            #print(inp.size())
-            #print(targ.size())
             loss_sum = loss_sum.add(self.cross_entropy(inp, targ))
         #r = self.cross_entropy(input, target)
         #print(loss_sum.div_(4))

@@ -308,6 +308,9 @@ class TaggingDataset(Dataset):
         # identify whether a token is a real token or padding
         self.attention_mask = self.encoded_data['attention_mask']
 
+        if(len(self.labels) != len(self.input_ids)):
+            raise Exception("Bad number of rows after tokenization.")
+
         # wygląda ok
         #print(txt[1])
         #print(self.labels[1])
@@ -457,6 +460,12 @@ class QADataset(TaggingDataset):
             start_positions[1],
             end_positions[1]
         ]).to(self.device)
+
+        #print(exact_pos_in_token)
+        #print(self.df['text'][idx])
+        #print(self.df['text_ner'][idx])
+        #print(self.tokenizer.instance.convert_ids_to_tokens(self.input_ids[idx]))
+        #exit()
         return exact_pos_in_token
 
     def __getitem__(self, idx):
