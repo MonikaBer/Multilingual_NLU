@@ -19,6 +19,10 @@ from tokenizer import SpecialTokens
 
 class Executor():
     def train_loop_QA(config, model, dataloader_train, dataloader_val, batch_processing: SpecialTokens):
+        start_weight = torch.clone(model.linear_e1_s.weight)
+        first_check = True
+
+
         if (config.load_models):
             model.load(config.load_models, config)
             return
@@ -53,6 +57,11 @@ class Executor():
 
                 model.optimizer.step()
                 model.scheduler.step()
+
+                if(first_check):
+                    if(torch.eq(start_weight, model.linear_e1_s.weight)):
+                        raise Exception("Model is not learning!!!. Somewhere grad was lost.")
+                    first_check = False
 
                 progress_bar.set_postfix({'training_loss': '{:.3f}'.format(loss.item() / len(batch))})
 
