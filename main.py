@@ -95,14 +95,16 @@ def train_loop(config, my_data_frame, tokenizer, model):
         max_length=config.max_length, 
         tokenizer=tokenizer,
         config=config,
-        mode='val'
+        mode='val',
+        id_to_label=my_data_frame.id_to_label
     )   
     dataset_train = DataSeqClassification(
         df=my_data_frame.df, 
         max_length=config.max_length, 
         tokenizer=tokenizer,
         config=config,
-        mode='train'
+        mode='train',
+        id_to_label=my_data_frame.id_to_label
     )   
 
     dataloader_val = dataloader.SequenceClassificationDataLoader(config, tokenizer, dataset_val, 'val')

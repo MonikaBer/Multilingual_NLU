@@ -218,7 +218,7 @@ class Executor():
         # model.load_state_dict(torch.load(f'{config.model_path}_epoch_1.model', map_location = torch.device(config.device)))
 
         for it in dataframe_test.iter_df(): # because it is a generator, tuple does not work here
-            df, lang, label_to_id = it[0], it[1], it[2]
+            df, lang, label_to_id, id_to_label = it[0], it[1], it[2], it[3]
             if (model.num_labels != len(label_to_id)):
                 raise Exception(f"Wrong size of labels. For test labels must" +
                     f"match the size of the model labels which it was trained.\n" +
@@ -230,7 +230,8 @@ class Executor():
                 max_length=config.max_length, 
                 tokenizer=tokenizer,
                 config=config,
-                mode='test'
+                mode='test',
+                id_to_label=id_to_label
             )
             dataloader_test = dataloader.SequenceClassificationDataLoader(config, tokenizer, dataset_test, 'test')
 
