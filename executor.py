@@ -19,7 +19,7 @@ from tokenizer import SpecialTokens
 
 class Executor():
     def train_loop_QA(config, model, dataloader_train, dataloader_val, batch_processing: SpecialTokens):
-        if(debug_check_for_weight_change):
+        if(config.debug_check_for_weight_change):
             start_weight = torch.clone(model.linear_e1_s.weight)
             first_check = True
 
@@ -58,7 +58,7 @@ class Executor():
                 model.optimizer.step()
                 model.scheduler.step()
 
-                if(debug_check_for_weight_change):
+                if(config.debug_check_for_weight_change):
                     if(first_check):
                         if(torch.all(torch.eq(start_weight, model.linear_e1_s.weight))):
                             raise Exception("Model is not learning!!!. Somewhere grad was lost.")
@@ -157,7 +157,7 @@ class Executor():
 
 
     def train_loop_relation(config, model, dataloader_train, dataloader_val):
-        if(debug_check_for_weight_change):
+        if(config.debug_check_for_weight_change):
             start_weight = torch.clone(model.model.bert.encoder.layer[0].attention.self.key.weight)
             first_check = True
 
@@ -191,7 +191,7 @@ class Executor():
                 model.optimizer.step()
                 model.scheduler.step()
 
-                if(debug_check_for_weight_change):
+                if(config.debug_check_for_weight_change):
                     if(first_check):
                         if(torch.all(torch.eq(start_weight, model.model.bert.encoder.layer[0].attention.self.key.weight))):
                             print(model.model.bert.encoder.layer[0].attention.self.key.weight)
