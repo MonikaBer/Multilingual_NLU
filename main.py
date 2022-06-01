@@ -66,6 +66,8 @@ def get_parser():
                         help = "limit number of batches in each epoch (default: %(default)s)")
     parser.add_argument("--load-models", default = False,
                         help = "flag to load models if they exist. Pass epoch number from where the model should be loaded.")
+    parser.add_argument("--debug-weight-change", action='store_true',
+                        help = "flag to check for weight change. This is a debug option. Raise exception if the weight does not changed after one training iteration.")
     return parser
 
 def train_loop(config, my_data_frame, tokenizer, model):
@@ -284,7 +286,8 @@ def main():
         max_norm = args.max_norm,
         fast_dev_run = args.fast_dev_run,
         batch_fast_dev_run = args.batch_fdr,
-        load_models = args.load_models
+        load_models = args.load_models,
+        debug_check_for_weight_change=args.debug_weight_change
     )
     utils.set_seed(config.seed)
 
