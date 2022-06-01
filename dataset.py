@@ -201,7 +201,7 @@ class ProcessedTestDataFrame(TestDataFrame):
 
 
 class DataSeqClassification(Dataset):
-    def __init__(self, df: pd.DataFrame, max_length, tokenizer, config, mode: str):
+    def __init__(self, df: pd.DataFrame, max_length, tokenizer, config, mode: str, id_to_label):
         super().__init__()
 
         if(not isinstance(df, pd.DataFrame)):
@@ -223,6 +223,7 @@ class DataSeqClassification(Dataset):
         self.df = df_in_use
         self.tokenizer = tokenizer
         self.max_length = max_length
+        self.id_to_label = id_to_label
 
         self.labels = torch.tensor(df_in_use.label_id.tolist())
 
@@ -230,7 +231,7 @@ class DataSeqClassification(Dataset):
         return self.df.shape[0]
 
     def get_label(self, idx):
-        return torch.tensor(self.df.label_id.values[idx])
+        return torch.tensor(self.df.label_id.values[idx]).to(self.device)
 
     def get_ids_mask(self, idx):
         txt = self.df.text_ner.values[idx]
@@ -245,11 +246,13 @@ class DataSeqClassification(Dataset):
         return encoded_data['input_ids'][0].to(self.device), encoded_data['attention_mask'][0].to(self.device)
 
     def __getitem__(self, idx):
-        label = self.get_label(idx).to(self.device)
+        label = self.get_label(idx)
         ids, attention_mask = self.get_ids_mask(idx)
 
         #print(self.df.text.values[idx])
         #print(self.df.text_ner.values[idx])
+        #print(label)
+        #print(self.id_to_label[label.item()])
         #print(self.tokenizer.instance.convert_ids_to_tokens(ids))
         #exit()
 
@@ -287,40 +290,13 @@ class TaggingDataset(Dataset):
         else:
             raise Exception("Unknown dataset type")
 
-        self.txt = df_in_use.text_ner.tolist()
         self.device = config.device
-        self.labels = df_in_use.label_ner
-        self.label_id = torch.tensor(df_in_use.label_id.tolist())
-        self.text_relation_labels = df_in_use.label_shortcut.tolist()
-
-        '''self.encoded_data = tokenizer(
-            self.txt,
-            add_special_tokens = True,
-            return_attention_mask = True,
-            padding='max_length',
-            max_length = max_length,
-            return_tensors = 'pt'
-        )'''
         self.df = df_in_use
         self.tokenizer = tokenizer
         self.max_length = max_length
 
-        # ids of the tokens in a sequence. Contains special reserved tokens
-        self.input_ids = self.encoded_data['input_ids']
-        # identify whether a token is a real token or padding
-        self.attention_mask = self.encoded_data['attention_mask']
-
-        if(len(self.labels) != len(self.input_ids)):
-            raise Exception("Bad number of rows after tokenization.")
-
-        # wygląda ok
-        #print(txt[1])
-        #print(self.labels[1])
-        #print(self.get_label(1))
-        #exit()
-
     def get_ids_mask(self, idx):
-        txt = self.df.text_ner[idx]
+        txt = self.df.text_ner.values[idx]
         encoded_data = self.tokenizer(
             txt,
             add_special_tokens = True,
@@ -354,34 +330,28 @@ class TaggingDataset(Dataset):
         return [e1_start, e1_end, e2_start, e2_end]
 
     def __len__(self):
-        return len(self.input_ids)
-
-    def get_attention_mask(self, idx):
-        return self.attention_mask[idx]
+        return self.df.shape[0]
 
     def get_label(self, idx):
-        indices = self.convert_ner_label_to_indices(self.labels[idx])
-        return torch.tensor(indices)
+        label =  self.df.label_ner.values[idx]
+        indices = self.convert_ner_label_to_indices(label_ner)
+        return torch.tensor(indices).to(self.device)
 
-    def get_input_ids(self, idx):
-        return self.input_ids[idx]
+    def get_ids_size(self):
+        return self.max_length
 
     def __getitem__(self, idx):
         '''
             Returns labels in form of 4 indices <e1_start, e1_end, e2_start, e2_end>
         '''
-        attention_mask = self.get_attention_mask(idx).to(self.device)
         label = self.get_label(idx).to(self.device)
-        ids = self.get_input_ids(idx).to(self.device)
+        ids, attention_mask = self.get_ids_mask(idx)
 
         return {
             'input_ids': ids,
             'attention_mask': attention_mask,
             'labels': label
             }
-
-    def get_ids_size(self):
-        return len(self.input_ids[0])
 
 class QADataset(TaggingDataset):
     def __init__(self, df: pd.DataFrame, max_length, tokenizer, config, mode: str):
@@ -461,11 +431,11 @@ class QADataset(TaggingDataset):
         return new_indexes_start, new_indexes_end
 
     def convert_ner_to_labels_indices(self, idx):
-        start_positions, end_positions = self.convert_QA_label_to_indices(self.labels[idx])
+        start_positions, end_positions = self.convert_QA_label_to_indices(self.df.label_ner.values[idx])
 
         if(-1 in end_positions or -1 in start_positions):
             raise Exception(f"Could not find start or end for row {idx}. Check data csv for errors.\n" +
-            f"start: {start_positions}\nend: {end_positions}\ntext: {self.txt[idx]}\nLabel: {self.labels[idx]}")
+            f"start: {start_positions}\nend: {end_positions}\ntext: {self.txt[idx]}\nLabel: {self.df.label_ner.values[idx]}")
 
         exact_pos_in_token = torch.tensor([
             start_positions[0],
@@ -474,11 +444,6 @@ class QADataset(TaggingDataset):
             end_positions[1]
         ]).to(self.device)
 
-        print(exact_pos_in_token)
-        print(self.df['text'][idx])
-        print(self.df['text_ner'][idx])
-        print(self.tokenizer.instance.convert_ids_to_tokens(self.input_ids[idx]))
-        exit()
         return exact_pos_in_token
 
     def __getitem__(self, idx):
@@ -486,50 +451,22 @@ class QADataset(TaggingDataset):
             Returns labels in form of 4 indices <e1_start, e1_end, e2_start, e2_end>
         '''
         ids, attention_mask = self.get_ids_mask(idx)
-        processed_text = self.txt[idx]
+        processed_text = self.df.text_ner.values[idx]
 
         exact_pos_in_token = self.convert_ner_to_labels_indices(idx)
 
-        #vector_label = torch.tensor(self.get_label_classification(idx, len(ids))).to(self.device)
-        #start_positions, end_positions = self.convert_QA_label_to_indices(self.labels[idx])
-        ##print(self.tokenizer.instance.convert_ids_to_tokens(self.input_ids[idx]))
-        ##start_positions, end_positions = self.convert_to_tokenized_word(start_positions, end_positions, idx)
-        #exact_pos_in_token = torch.tensor([
-        #    start_positions[0],
-        #    end_positions[0],
-        #    start_positions[1],
-        #    end_positions[1]
-        #]).to(self.device)
-        #start_positions = torch.tensor(start_positions, dtype=torch.long).to(self.device)
-        #end_positions = torch.tensor(end_positions, dtype=torch.long).to(self.device)
-
-
-        
-        #default_labels = self.get_label(idx).to(self.device)
-
-        
-
-        #start_positions = start_positions[0]
-        #end_positions = end_positions[0]
-
-        #if(-1 in end_positions or -1 in start_positions):
-        #    raise Exception(f"Could not find start or end for row {idx}. Check data csv for errors.\n" +
-        #    f"start: {start_positions}\nend: {end_positions}\ntext: {self.txt[idx]}")
-
-        #print(vector_label.size())
-        #print(exact_pos_in_token.size())
-        #print(ids.size())
+        #print(exact_pos_in_token)
+        #print(self.df.text.values[idx])
+        #print(self.df.text_ner.values[idx])
+        #print(self.tokenizer.instance.convert_ids_to_tokens(ids))
+        #exit()
 
         return {
             'input_ids': ids,
             'attention_mask': attention_mask,
-            #'start_positions': start_positions,
-            #'end_positions': end_positions,
             'exact_pos_in_token': exact_pos_in_token,
-            #'vector_label': vector_label,
-            #'labels': default_labels,
-            'labels': self.label_id[idx].to(self.device),
-            'text_relation_labels': self.text_relation_labels[idx],
+            'labels': torch.tensor(self.df.label_id.values[idx]).to(self.device),
+            'text_relation_labels': self.df.label_shortcut.values[idx],
             'text': processed_text
             }
 
