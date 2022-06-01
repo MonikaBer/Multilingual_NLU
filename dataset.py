@@ -98,21 +98,6 @@ class BaseDataFrame():
     def remove_invalid_data(self, df):
         return df[df.label_ner != 'None_wrong_record']
 
-    def remove_rare_relations(trainRelationDict, testRelationDict,
-            trainUniqueRelationList, testUniqueRelationList):
-        keysToRemove = []
-        for k in trainRelationDict.keys():
-            if (trainRelationDict[k] < 16):
-                keysToRemove.append(k)
-        if keysToRemove:
-            for k in keysToRemove:
-                if k in trainUniqueRelationList:
-                    trainUniqueRelationList.remove(k)
-                if k in testUniqueRelationList:
-                    testUniqueRelationList.remove(k)
-                del trainRelationDict[k]
-                del testRelationDict[k]
-
     def multiply_rare_labels(self, train, test, config):
         trainUniqueRelationList = train.label.unique().tolist()
         testUniqueRelationList = test.label.unique().tolist()
@@ -128,13 +113,11 @@ class BaseDataFrame():
             utils.remove_uncommon_values_in_two_lists(testUniqueRelationList, commonRelation)
         trainRelationDict = utils.count_relations(train, trainUniqueRelationList)
         testRelationDict = utils.count_relations(test, testUniqueRelationList)
-        relationsToMultiply = utils.relations_to_multiply(trainRelationDict, testRelationDict,
-                trainUniqueRelationList, testUniqueRelationList)
-        toMultiply_df = pandas.DataFrame(list(train.columns.values))
-
-
-
-
+        train = train[train.label.isin(trainUniqueRelationList)]
+        test = test[test.label.isin(testUniqueRelationList)]
+        relationsToMultiply = utils.relations_to_multiply(trainRelationDict, trainUniqueRelationList, config.relation_threshold)
+        train = utils.append_rare_relations_to_df(train, relationsToMultiply, config.relation_threshold)
+        return train, test
 
 
 class TrainingDataFrame(BaseDataFrame):
@@ -157,13 +140,13 @@ class TrainingDataFrame(BaseDataFrame):
         for lang in config.langs:
             trainLangPath = config.data_dir + lang + '_corpora_train'
             testLangPath = config.data_dir + lang + '_corpora_test'
-            if(not os.path.isfile(trainLangPath + '2' + '.tsv') or not os.path.isfile(testLangPath + '2' + '.tsv')):
-                trainLangDataset = pd.read_csv(trainLangPath + '.tsv', sep = '\t')
-                testLangDataset = pd.read_csv(testLangPath + '.tsv', sep = '\t')
-                train2LangDataset, test2LangDataset = \
-                    utils.remove_rare_relations_from_language_pair(trainLangDataset, testLangDataset)
-                train2LangDataset.to_csv(trainLangPath + '2' + '.tsv', sep = '\t', index = False)
-                test2LangDataset.to_csv(testLangPath + '2' + '.tsv', sep = '\t', index = False)
+            #if(not os.path.isfile(trainLangPath + '2' + '.tsv') or not os.path.isfile(testLangPath + '2' + '.tsv')):
+            trainLangDataset = pd.read_csv(trainLangPath + '.tsv', sep = '\t')
+            testLangDataset = pd.read_csv(testLangPath + '.tsv', sep = '\t')
+            train2LangDataset, test2LangDataset = \
+                self.multiply_rare_labels(trainLangDataset, testLangDataset, config)
+            train2LangDataset.to_csv(trainLangPath + '2' + '.tsv', sep = '\t', index = False)
+            test2LangDataset.to_csv(testLangPath + '2' + '.tsv', sep = '\t', index = False)
 
         # define path for joint train dataset
         dataset_path = config.data_dir

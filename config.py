@@ -30,6 +30,7 @@ class Config:
         fast_dev_run=None,
         batch_fast_dev_run=None,
         load_models = False,
+        relation_threshold = 32
     ):
         self.data_dir = data_dir
         self.model_path = model_path
@@ -47,6 +48,7 @@ class Config:
         self.fast_dev_run = fast_dev_run
         self.batch_fast_dev_run = batch_fast_dev_run
         self.load_models = load_models
+        self.relation_threshold = relation_threshold
 
         languages = str2list(langs)
         languages.sort()

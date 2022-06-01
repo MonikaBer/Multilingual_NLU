@@ -38,62 +38,27 @@ def count_relations(dataset, datasetUniqueRelationList):
                 datasetRelationDict[i] += 1
     return datasetRelationDict
 
-def remove_rare_relations(trainRelationDict, testRelationDict,
-        trainUniqueRelationList, testUniqueRelationList):
-    keysToRemove = []
-    for k in trainRelationDict.keys():
-        if (trainRelationDict[k] < 16):
-            keysToRemove.append(k)
-    if keysToRemove:
-        for k in keysToRemove:
-            if k in trainUniqueRelationList:
-                trainUniqueRelationList.remove(k)
-            if k in testUniqueRelationList:
-                testUniqueRelationList.remove(k)
-            del trainRelationDict[k]
-            del testRelationDict[k]
-
-def relations_to_multiply(trainRelationDict, testRelationDict,
-        trainUniqueRelationList, testUniqueRelationList):
+def relations_to_multiply(trainRelationDict,
+        trainUniqueRelationList, relationThreshold):
         keysToMultiply = []
         for k in trainRelationDict.keys():
-            if (trainRelationDict[k] < 16):
+            if (trainRelationDict[k] < relationThreshold):
                 keysToMultiply.append(k)
         return keysToMultiply
 
-def multiply_rare_relations(train, keysToMutiply, trainRelationDict):
-    toMultiply_df = pandas.DataFrame(list(train.columns.values))
-    for n,i in enumerate(train.text):
-        count = 0
-        if train.label[n] in keysToMultiply:
-            count += 1
-            for j in range(16 * count):
-                toMultiply_df.loc[j]
+def append_rare_relations_to_df(train, keysToMultiply, relationThreshold):
+    if keysToMultiply:
+        toMultiply_df = pd.DataFrame(columns = list(train.columns.values))
+        for rel in keysToMultiply:
+            rareRelationIndices = []
+            for n,i in enumerate(train.text):
+                if train.iloc[n]["label"] == rel:
+                    rareRelationIndices.append(n)
+            for m in range(relationThreshold - len(rareRelationIndices)):
+                    toMultiply_df.loc[m] = train.loc[rareRelationIndices[m]]
+            train = pd.concat([train, toMultiply_df], ignore_index = True)
+    return train
 
-
-
-
-
-def remove_rare_relations_from_language_pair(train, test):
-    trainUniqueRelationList = train.label.unique().tolist()
-    testUniqueRelationList = test.label.unique().tolist()
-    trainUniqueRelationList.sort()
-    testUniqueRelationList.sort()
-    if trainUniqueRelationList != testUniqueRelationList:
-        commonRelation = []
-        for i in trainUniqueRelationList:
-            for j in testUniqueRelationList:
-                if i == j:
-                    commonRelation.append(i)
-        remove_uncommon_values_in_two_lists(trainUniqueRelationList, commonRelation)
-        remove_uncommon_values_in_two_lists(testUniqueRelationList, commonRelation)
-    trainRelationDict = count_relations(train, trainUniqueRelationList)
-    testRelationDict = count_relations(test, testUniqueRelationList)
-    remove_rare_relations(trainRelationDict, testRelationDict,
-        trainUniqueRelationList, testUniqueRelationList)
-    train = train[train.label.isin(trainUniqueRelationList)]
-    test = test[test.label.isin(testUniqueRelationList)]
-    return train, test
 
 def getModelSize(model):
     """
@@ -137,98 +102,6 @@ def align_label(texts, labels, tokenizer):
         previous_word_idx = word_idx
 
     return label_ids
-
-def mask_entity_token_positions(entityList, sentenceLength):
-    maskList = ['O'] * (sentenceLength + 4)
-    if entityList:
-        maskList[entityList[0]] = 'B-ent1'
-        maskList[entityList[1] + 1] = 'I-ent1'
-        maskList[entityList[2] + 2] = 'B-ent2'
-        maskList[entityList[3] + 3] = 'I-ent2'
-    return maskList
-
-def which_tag(tag):
-    if tag[1] == 'e':
-        if tag[2] == '##1':
-            return 0
-        elif tag[2] == '##2':
-            return 2
-        else:
-            return -1
-    elif tag[1] == '/':
-        if tag[3] == '##1':
-            return 1
-        elif tag[3] == '##2':
-            return 3
-        else:
-            return -1
-    else:
-        return -1
-
-
-def find_entity_token_positions(df,tokenizer):
-    '''
-    df must contain sentences with <e1>, <e2> tags
-    '''
-
-    #tags for <e1>, </e1>, <e2>, </e2> are always returned this way
-    b1 = ['<', 'e', '##1', '>']
-    e1 = ['<', '/', 'e', '##1', '>']
-    b2 = ['<', 'e', '##2', '>']
-    e2 = ['<', '/', 'e', '##2', '>']
-
-    tagListLong = [b1,e1,b2,e2]
-    tagList = [b1,e1[0:4],b2,e2[0:4]]
-
-    maskedFourEntitiesArray = []
-    possibleErrorList = []
-    for sentenceNumber, untokenizedSentence in enumerate(df.text.values):
-        sentence = tokenizer.tokenize(untokenizedSentence)
-        #values used in next loop must be initialized
-        positionFourEntities = []
-        point = -4
-        increment = -1
-        flagError = 0
-        for n,i in enumerate(sentence):
-            if i == '<':
-                point = n
-                tagCandidate = []
-            if n - point < 4:
-                flag = 0
-                for tag in tagList:
-                    if tag[n - point] == i:
-                        tagCandidate.append(i)
-                        flag = 1
-                        break
-                if flag == 0:
-                    point = n - 4
-                if (len(tagCandidate) - 1 == n - point) and (flag == 1):
-                    if n - point == 3:
-                        tagNumber = which_tag(tagCandidate)
-                        increment += 1
-                        if tagNumber != increment:
-                            possibleErrorList.append(sentenceNumber)
-                            flagError = 1
-                            point = n - 4
-                        else:
-                            positionFourEntities.append(n - 3)
-                            point = n - 4
-                if not flagError:
-                    positionFourEntities[1] -= 4
-                    positionFourEntities[2] -= 9
-                    positionFourEntities[3] -= 13
-                    maskedFourEntities = mask_entity_token_positions(positionFourEntities, len(sentence))
-                    maskedFourEntitiesArray.append(maskedFourEntities)
-                else:
-                    maskedFourEntitiesArray.append([])
-
-
-    if possibleErrorList:
-        warnings.warn('there are problems with entity tags or with entity_token_positions function')
-
-    #return positions of first token in every entity (out of 4) for each sentence
-    #dimensions [len(df.text.values) x 4]
-    return maskedFourEntitiesArray
 
 
 def split_text(txt):
