@@ -30,11 +30,8 @@ class Config:
         fast_dev_run=None,
         batch_fast_dev_run=None,
         load_models = False,
-<<<<<<< HEAD
-        relation_threshold = 32
-=======
         debug_check_for_weight_change=False
->>>>>>> main
+        relation_threshold = 32
     ):
         self.data_dir = data_dir
         self.model_path = model_path
@@ -52,11 +49,8 @@ class Config:
         self.fast_dev_run = fast_dev_run
         self.batch_fast_dev_run = batch_fast_dev_run
         self.load_models = load_models
-<<<<<<< HEAD
-        self.relation_threshold = relation_threshold
-=======
         self.debug_check_for_weight_change = debug_check_for_weight_change
->>>>>>> main
+        self.relation_threshold = relation_threshold
 
         languages = str2list(langs)
         languages.sort()

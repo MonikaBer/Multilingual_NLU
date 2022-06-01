@@ -477,43 +477,11 @@ class QADataset(TaggingDataset):
 
         exact_pos_in_token = self.convert_ner_to_labels_indices(idx)
 
-<<<<<<< HEAD
-        #vector_label = torch.tensor(self.get_label_classification(idx, len(ids))).to(self.device)
-        #start_positions, end_positions = self.convert_QA_label_to_indices(self.labels[idx])
-        ##print(self.tokenizer.instance.convert_ids_to_tokens(self.input_ids[idx]))
-        ##start_positions, end_positions = self.convert_to_tokenized_word(start_positions, end_positions, idx)
-        #exact_pos_in_token = torch.tensor([
-        #    start_positions[0],
-        #    end_positions[0],
-        #    start_positions[1],
-        #    end_positions[1]
-        #]).to(self.device)
-        #start_positions = torch.tensor(start_positions, dtype=torch.long).to(self.device)
-        #end_positions = torch.tensor(end_positions, dtype=torch.long).to(self.device)
-
-
-
-        #default_labels = self.get_label(idx).to(self.device)
-
-
-
-        #start_positions = start_positions[0]
-        #end_positions = end_positions[0]
-
-        #if(-1 in end_positions or -1 in start_positions):
-        #    raise Exception(f"Could not find start or end for row {idx}. Check data csv for errors.\n" +
-        #    f"start: {start_positions}\nend: {end_positions}\ntext: {self.txt[idx]}")
-
-        #print(vector_label.size())
-        #print(exact_pos_in_token.size())
-        #print(ids.size())
-=======
         #print(exact_pos_in_token)
         #print(self.df.text.values[idx])
         #print(self.df.text_ner.values[idx])
         #print(self.tokenizer.instance.convert_ids_to_tokens(ids))
         #exit()
->>>>>>> main
 
         return {
             'input_ids': ids,
