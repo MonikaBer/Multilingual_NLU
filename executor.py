@@ -59,7 +59,7 @@ class Executor():
                 model.scheduler.step()
 
                 if(first_check):
-                    if(torch.eq(start_weight, model.linear_e1_s.weight)):
+                    if(torch.all(torch.eq(start_weight, model.linear_e1_s.weight))):
                         raise Exception("Model is not learning!!!. Somewhere grad was lost.")
                     first_check = False
 
