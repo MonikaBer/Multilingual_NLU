@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from argparse import ArgumentParser
 
 from config import Config
