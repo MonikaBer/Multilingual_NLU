@@ -66,7 +66,7 @@ class BaseDataFrame():
         return label_to_shortcut, shortcut_to_label
 
     def convert_to_ner_data(self, df: pd.DataFrame, tokenizer, config):
-        texts = df.text.values.tolist()
+        texts = df.text.tolist()
         process = EntityFinding()
 
         def pr_labels(row):
@@ -169,6 +169,7 @@ class TrainHERBERTaDataFrame(TrainingDataFrame):
         # split dataset
         new_df = self.split_data(new_df, config)
         new_df = self.remove_invalid_data(new_df)
+        new_df.reset_index(drop=True)
 
         return new_df, label_to_id, id_to_label
 
@@ -208,52 +209,48 @@ class DataSeqClassification(Dataset):
 
         if(mode == 'val'):
             df_in_use = df[df.data_type == 'val']
+            df_in_use.reset_index(drop=True)
         elif(mode == 'train'):
             df_in_use = df[df.data_type == 'train']
+            df_in_use.reset_index(drop=True)
         elif mode == 'test':
             df_in_use = df
         else:
             raise Exception("Unknown dataset type")
 
-        txt = df_in_use.text_ner.values.tolist()
         self.device = config.device
+        
+        self.df = df_in_use
+        self.tokenizer = tokenizer
+        self.max_length = max_length
 
-        self.encoded_data = tokenizer(
+        self.labels = torch.tensor(df_in_use.label_id.tolist())
+
+    def __len__(self):
+        return self.df.shape[0]
+
+    def get_label(self, idx):
+        return torch.tensor(self.df.label_id.values[idx])
+
+    def get_ids_mask(self, idx):
+        txt = self.df.text_ner.values[idx]
+        encoded_data = self.tokenizer(
             txt,
             add_special_tokens = True,
             return_attention_mask = True,
             padding='max_length',
-            max_length = max_length,
+            max_length = self.max_length,
             return_tensors = 'pt'
         )
-
-        # ids of the tokens in a sequence. Contains special reserved tokens
-        self.input_ids = self.encoded_data['input_ids']
-        # identify whether a token is a real token or padding
-        self.attention_mask = self.encoded_data['attention_mask']
-        self.labels = torch.tensor(df_in_use.label_id.values.tolist())
-
-    def __len__(self):
-        return len(self.labels)
-
-    def get_attention_mask(self, idx):
-        return self.attention_mask[idx]
-
-    def get_label(self, idx):
-        return self.labels[idx]
-
-    def get_input_ids(self, idx):
-        return self.input_ids[idx]
+        return encoded_data['input_ids'][0].to(self.device), encoded_data['attention_mask'][0].to(self.device)
 
     def __getitem__(self, idx):
-        attention_mask = self.get_attention_mask(idx).to(self.device)
         label = self.get_label(idx).to(self.device)
-        ids = self.get_input_ids(idx).to(self.device)
+        ids, attention_mask = self.get_ids_mask(idx)
 
-        #print("-----------------------------")
-        #print('ids', ids)
-        #print('txt', self.txt[idx])
-        #print('label', label)
+        #print(self.df.text.values[idx])
+        #print(self.df.text_ner.values[idx])
+        #print(self.tokenizer.instance.convert_ids_to_tokens(ids))
         #exit()
 
         return {
@@ -281,27 +278,32 @@ class TaggingDataset(Dataset):
 
         if(mode == 'val'):
             df_in_use = df[df.data_type == 'val']
+            df_in_use.reset_index(drop=True)
         elif(mode == 'train'):
             df_in_use = df[df.data_type == 'train']
+            df_in_use.reset_index(drop=True)
         elif mode == 'test':
             df_in_use = df
         else:
             raise Exception("Unknown dataset type")
 
-        self.txt = df_in_use.text_ner.values.tolist()
+        self.txt = df_in_use.text_ner.tolist()
         self.device = config.device
-        self.labels = df_in_use.label_ner.values
-        self.label_id = torch.tensor(df_in_use.label_id.values.tolist())
-        self.text_relation_labels = df_in_use.label_shortcut.values.tolist()
+        self.labels = df_in_use.label_ner
+        self.label_id = torch.tensor(df_in_use.label_id.tolist())
+        self.text_relation_labels = df_in_use.label_shortcut.tolist()
 
-        self.encoded_data = tokenizer(
+        '''self.encoded_data = tokenizer(
             self.txt,
             add_special_tokens = True,
             return_attention_mask = True,
             padding='max_length',
             max_length = max_length,
             return_tensors = 'pt'
-        )
+        )'''
+        self.df = df_in_use
+        self.tokenizer = tokenizer
+        self.max_length = max_length
 
         # ids of the tokens in a sequence. Contains special reserved tokens
         self.input_ids = self.encoded_data['input_ids']
@@ -316,7 +318,18 @@ class TaggingDataset(Dataset):
         #print(self.labels[1])
         #print(self.get_label(1))
         #exit()
-        self.tokenizer = tokenizer
+
+    def get_ids_mask(self, idx):
+        txt = self.df.text_ner[idx]
+        encoded_data = self.tokenizer(
+            txt,
+            add_special_tokens = True,
+            return_attention_mask = True,
+            padding='max_length',
+            max_length = self.max_length,
+            return_tensors = 'pt'
+        )
+        return encoded_data['input_ids'][0].to(self.device), encoded_data['attention_mask'][0].to(self.device)
 
     def convert_ner_label_to_indices(self, label: list):
         """
@@ -461,19 +474,18 @@ class QADataset(TaggingDataset):
             end_positions[1]
         ]).to(self.device)
 
-        #print(exact_pos_in_token)
-        #print(self.df['text'][idx])
-        #print(self.df['text_ner'][idx])
-        #print(self.tokenizer.instance.convert_ids_to_tokens(self.input_ids[idx]))
-        #exit()
+        print(exact_pos_in_token)
+        print(self.df['text'][idx])
+        print(self.df['text_ner'][idx])
+        print(self.tokenizer.instance.convert_ids_to_tokens(self.input_ids[idx]))
+        exit()
         return exact_pos_in_token
 
     def __getitem__(self, idx):
         '''
             Returns labels in form of 4 indices <e1_start, e1_end, e2_start, e2_end>
         '''
-        attention_mask = self.get_attention_mask(idx).to(self.device)
-        ids = self.get_input_ids(idx).to(self.device)
+        ids, attention_mask = self.get_ids_mask(idx)
         processed_text = self.txt[idx]
 
         exact_pos_in_token = self.convert_ner_to_labels_indices(idx)
