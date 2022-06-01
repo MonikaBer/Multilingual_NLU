@@ -44,6 +44,7 @@ def accuracy_per_class_QA(preds, labels, id_to_label):
 
     #print(preds.size())
     #print(labels.size())
+    #exit()
 
     # iterate over indices
     equality_1 = []

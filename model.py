@@ -19,7 +19,7 @@ class BaseModel(nn.Module):
 
     def set_optimizer(self, config):
         self.optimizer = torch.optim.AdamW(
-            self.model.parameters(),
+            self.parameters(),
             lr = config.lr,
             eps = config.eps
         )

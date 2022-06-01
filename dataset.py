@@ -685,7 +685,7 @@ class SublistFinder():
         self.at_last_pos = -1
 
     def process(self, token: str, at_pos):
-        #print(token, "==", self.sublist, "==", at_pos, "==", self.pos, "==", len(self.sublist))
+        #print(token, "== sublist ", self.sublist, "== at_pos ", at_pos, "== pos ", self.pos, "==", len(self.sublist))
         if(self.pos == len(self.sublist)):
             # found and it is OK
             return

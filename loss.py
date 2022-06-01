@@ -14,16 +14,16 @@ class QAVectorLossFunction():
     def __call__(self, input: Tensor, target: Tensor):
         #print(input.size())
         #print(target.size())
-        loss_sum = torch.zeros(1).to(input.device)
-        target = torch.permute(target, (1, 0)) # flip target dims -> <indices, batch>
+        loss_sum = torch.zeros(1, requires_grad=True).to(input.device)
+        target = torch.permute(target, (1, 0)) # flip target dims <batch, indices> -> <indices, batch>
         for inp, targ in zip(input, target): # iterate over indices
             #print(inp.size())
             #print(targ.size())
-            loss_sum.add_(self.cross_entropy(inp, targ))
+            loss_sum = loss_sum.add(self.cross_entropy(inp, targ))
         #r = self.cross_entropy(input, target)
         #print(loss_sum.div_(4))
         #exit()
-        return loss_sum.div_(4)
+        return loss_sum.div(4)
         '''loss_sum = torch.zeros(1)
         for i in range(self.numb_of_indices):
             print(input[i].size(), target[i].size())
