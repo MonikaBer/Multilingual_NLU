@@ -86,7 +86,7 @@ class EntityTagging(BaseModel, nn.Module):
         self.num_labels = num_labels
         self.loss_f = loss_f
 
-        '''self.relu = torch.nn.ReLU()
+        self.relu = torch.nn.ReLU()
 
         self.linear_e1_s = torch.nn.Linear(output_layer_size, 512).to(config.device)
         self.linear_e1_e = torch.nn.Linear(output_layer_size, 512).to(config.device)
@@ -101,7 +101,7 @@ class EntityTagging(BaseModel, nn.Module):
         self.linear3_e1_s = torch.nn.Linear(1024, output_layer_size).to(config.device)
         self.linear3_e1_e = torch.nn.Linear(1024, output_layer_size).to(config.device)
         self.linear3_e2_s = torch.nn.Linear(1024, output_layer_size).to(config.device)
-        self.linear3_e2_e = torch.nn.Linear(1024, output_layer_size).to(config.device)'''
+        self.linear3_e2_e = torch.nn.Linear(1024, output_layer_size).to(config.device)
 
     def __getstate__(self):
         state = super().__getstate__()
@@ -125,7 +125,7 @@ class EntityTagging(BaseModel, nn.Module):
             return_dict=False
         )
         
-        '''os1 = self.linear_e1_s(self.relu(o_start))
+        os1 = self.linear_e1_s(self.relu(o_start))
         os2 = self.linear_e2_s(self.relu(o_start))
         oe1 = self.linear_e1_e(self.relu(o_end))
         oe2 = self.linear_e2_e(self.relu(o_end))
@@ -138,7 +138,7 @@ class EntityTagging(BaseModel, nn.Module):
         os1 = self.linear3_e1_s(self.relu(os1))
         os2 = self.linear3_e2_s(self.relu(os2))
         oe1 = self.linear3_e1_e(self.relu(oe1))
-        oe2 = self.linear3_e2_e(self.relu(oe2))'''
+        oe2 = self.linear3_e2_e(self.relu(oe2))
 
         output = torch.stack([o_start, o_end, o_start, o_end], dim=0) # <indices, batch, tokens number> [4, 3, 256]
         loss = self.loss_f(output, exact_pos_in_token)
