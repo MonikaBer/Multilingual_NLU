@@ -53,6 +53,22 @@ def remove_rare_relations(trainRelationDict, testRelationDict,
             del trainRelationDict[k]
             del testRelationDict[k]
 
+def relations_to_multiply(trainRelationDict, testRelationDict,
+        trainUniqueRelationList, testUniqueRelationList):
+        keysToMultiply = []
+        for k in trainRelationDict.keys():
+            if (trainRelationDict[k] < 16):
+                keysToMultiply.append(k)
+        return keysToMultiply
+
+def multiply_rare_relations(train, keysToMutiply, trainRelationDict):
+    recordsToMultiply = {}
+    for n,i in enumerate(train.text):
+        if train.label[n] in keysToMultiply:
+            recordsToMultiply.append(n)
+    for n,i in enumerate(train.text):
+
+
 
 def remove_rare_relations_from_language_pair(train, test):
     trainUniqueRelationList = train.label.unique().tolist()
