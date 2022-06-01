@@ -2,9 +2,9 @@
 Multilingual Natural Language Understanding with M-BERT and SMiLER dataset for Multilingual Entity and Relation Extraction.
 
 ## Doc
-- [v1](https://demo.hedgedoc.org/0ezHN-JjQGm7Oog9j-Ty0A)
-- [final](https://demo.hedgedoc.org/DvFln3INS12i5sH8q8tIfw)
-- [comments](https://demo.hedgedoc.org/T4G22XgsSHGTEUNk7J5s_w)
+- [Initial documentation](https://demo.hedgedoc.org/0ezHN-JjQGm7Oog9j-Ty0A)
+- [Final documentation](https://demo.hedgedoc.org/DvFln3INS12i5sH8q8tIfw)
+- [Comments](https://demo.hedgedoc.org/T4G22XgsSHGTEUNk7J5s_w)
 
 # Requirements
 - Python 3.8.10
