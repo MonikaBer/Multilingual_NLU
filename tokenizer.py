@@ -42,6 +42,14 @@ class SpecialTokens():
         self.tokenizer = tokenizer
 
     def update_batch(self, batch, labels_to_add: list[str], config):
+        return self._update_batch(
+            batch=batch,
+            labels_to_add=labels_to_add,
+            config=config,
+            add_text=''
+        )
+
+    def _update_batch(self, batch, labels_to_add: list[str], config, add_text):
         '''
             labels_to_add - must have the size of <batch>
         '''
@@ -51,7 +59,15 @@ class SpecialTokens():
         model2_attention_mask = []
         model2_labels = []
         for txt, token_pos, label_to_add in zip(batch['text'], batch['exact_pos_in_token'], labels_to_add):
-            new_txt = label_to_add + '[SEP]' + txt
+            new_txt = label_to_add + add_text + '[SEP]' + txt
+            previous_data = self.tokenizer(
+                txt,
+                add_special_tokens = True,
+                return_attention_mask = True,
+                padding='max_length',
+                max_length = config.max_length,
+                return_tensors = 'pt'
+            )
             tokenized_data = self.tokenizer(
                 new_txt,
                 add_special_tokens = True,
@@ -60,13 +76,23 @@ class SpecialTokens():
                 max_length = config.max_length,
                 return_tensors = 'pt'
             )
+
+            shift = 0
+            for p, t in zip(previous_data['input_ids'][0], tokenized_data['input_ids'][0]):
+                if t == 0:
+                    break
+                if p == 0:
+                    shift += 1
+                
             #print(batch['input_ids'][0])
             #print(self.tokenizer.instance.decode(tokenized_data['input_ids'][0]))
             #print(tokenized_data['input_ids'][0])
+            #print(previous_data['input_ids'][0])
+            #print(shift)
             #exit()
             model2_input_ids.append(tokenized_data['input_ids'][0])
             model2_attention_mask.append(tokenized_data['attention_mask'][0])
-            model2_labels.append(token_pos.add(2)) # shift by two positions (added two tags to beginning)
+            model2_labels.append(token_pos.add(shift)) # shift by two positions (added two tags to beginning)
             
                 
         #print(type(model2_input_ids))
@@ -80,6 +106,14 @@ class SpecialTokens():
         
         return batch
 
+    def update_batch_with_entity(self, batch, labels_to_add: list[str], config, entity_num: int):
+        text = ' ent' + str(entity_num) 
+        return self._update_batch(
+            batch=batch,
+            labels_to_add=labels_to_add,
+            config=config,
+            add_text=text
+        )
 
     # not implemented, should not be used
     def update_batch_test(self, batch, label_to_add: str):
