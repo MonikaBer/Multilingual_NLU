@@ -2,12 +2,11 @@
 
 programname=$0
 function usage {
-    echo "usage: $programname [--hyperparams-path=hyperparams_path] [--start=start_id] [--n=exps_number] [--r=repeats_number] [--results-path=results_path]"
+    echo "usage: $programname [--hyperparams-path=hyperparams_path] [--start=start_id] [--n=exps_number] [--r=repeats_number]"
     echo "  --hyperparams-path  Path to hyperparameters"
     echo "  --start             Id of first experiment"
     echo "  --n                 Experiments number"
     echo "  --r                 Number of repeats for each experiment"
-    echo "  --results-path      Path for saving results"
     exit 1
 }
 
@@ -26,16 +25,13 @@ case $i in
     --r=*)
     REPEATS="${i#*=}"
     ;;
-    --path=*)
-    RESULTS_PATH="${i#*=}"
-    ;;
     *)
     usage        # unknown option
     ;;
 esac
 done
 
-if [[ -z "$HYPERPARAMS_PATH" || -z "$START_ID" || -z "$N" || -z "$REPEATS" || -z "${RESULTS_PATH}" ]]
+if [[ -z "$HYPERPARAMS_PATH" || -z "$START_ID" || -z "$N" || -z "$REPEATS" ]]
 then
     usage
 fi

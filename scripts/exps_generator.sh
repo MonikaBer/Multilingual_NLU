@@ -25,7 +25,7 @@ case $i in
     --id=*)
     CURR_ID="${i#*=}"
     ;;
-    --path=*)
+    --results-path=*)
     RESULTS_PATH="${i#*=}"
     ;;
     *)

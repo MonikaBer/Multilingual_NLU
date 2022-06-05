@@ -7,8 +7,8 @@ Multilingual Natural Language Understanding with M-BERT and SMiLER dataset for M
 - [Comments](https://demo.hedgedoc.org/T4G22XgsSHGTEUNk7J5s_w)
 
 # Requirements
-- Python 3.8.10
-- Pip 20.0.2
+- Python 3.10.4
+- Pip 22.0.4
 
 ## Configuration
 - unpack archive with SMiLER data
@@ -32,10 +32,10 @@ python main.py --device "cuda" --max-length 256 --batch-size 32 --langs "(ru,pl,
 
 2. Script for generating experiments:
 ```
-./scripts/exps_generator.sh --id=0 --results-path="experiments.csv"
+./scripts/exps_generator.sh --id=0 --results-path="example-experiments.csv"
 ```
 
 3. Scripts for executing experiments:
 ```
-./scripts/exps_executor.sh --hyperparams-path "example-experiments.csv" --start=0 --n=5 --r=3 --results-path="results.csv"
+./scripts/exps_executor.sh --hyperparams-path="example-experiments.csv" --start=0 --n=5 --r=3
 ```
